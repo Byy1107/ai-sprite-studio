@@ -28,7 +28,8 @@ export function DashboardPage() {
     refetchInterval: 30_000,
   });
 
-  const backendReady = healthQuery.data?.status === "ok";
+  const health = healthQuery.data;
+  const backendReady = health?.status === "ok";
 
   return (
     <main className="app-shell">
@@ -56,7 +57,7 @@ export function DashboardPage() {
           label="Backend API"
           detail={
             backendReady
-              ? `${healthQuery.data.service} ${healthQuery.data.version} is healthy.`
+              ? `${health.service} ${health.version} is healthy.`
               : healthQuery.isError
                 ? "Start the FastAPI service on port 8000."
                 : "Checking the local API…"
@@ -83,4 +84,3 @@ export function DashboardPage() {
     </main>
   );
 }
-
