@@ -19,7 +19,12 @@ def upgrade() -> None:
     op.create_table(
         "generation_jobs",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("project_id", sa.String(36), sa.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "project_id",
+            sa.String(36),
+            sa.ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("asset_id", sa.String(36), sa.ForeignKey("assets.id", ondelete="SET NULL")),
         sa.Column("provider", sa.String(32), nullable=False),
         sa.Column("workflow_id", sa.String(80), nullable=False),
@@ -40,7 +45,12 @@ def upgrade() -> None:
     op.create_table(
         "generation_results",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("job_id", sa.String(36), sa.ForeignKey("generation_jobs.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "job_id",
+            sa.String(36),
+            sa.ForeignKey("generation_jobs.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("file_path", sa.Text(), nullable=False, unique=True),
         sa.Column("thumbnail_path", sa.Text(), nullable=False),
         sa.Column("seed", sa.Integer(), nullable=False),
