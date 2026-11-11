@@ -1,0 +1,19 @@
+{
+  "name": "ai-sprite-studio",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.11.0",
+  "engines": {
+    "node": ">=20 <26",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @ai-sprite-studio/web dev",
+    "dev:web": "pnpm --filter @ai-sprite-studio/web dev",
+    "build": "pnpm --filter @ai-sprite-studio/web build",
+    "lint": "pnpm --filter @ai-sprite-studio/web lint",
+    "typecheck": "pnpm --filter @ai-sprite-studio/web typecheck",
+    "test": "pnpm --filter @ai-sprite-studio/web test"
+  }
+}
+
