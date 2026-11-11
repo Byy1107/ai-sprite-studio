@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getHealth } from "../lib/api";
+import { ProjectBrowser } from "../features/projects/ProjectBrowser";
 
 type StatusCardProps = {
   label: string;
@@ -41,15 +42,17 @@ export function DashboardPage() {
             An offline-first home for crisp micro-pixel and 8-bit game assets.
           </p>
         </div>
-        <div className="build-tag">Sprint 0 · Foundation</div>
+        <div className="build-tag">Sprint 1 · Project workspace</div>
       </header>
 
       <section className="notice" aria-label="Sprint status">
-        <strong>Engineering baseline active.</strong>
+        <strong>Local project workspace active.</strong>
         <span>
-          Project creation, pixel editing, animation, and AI generation arrive in later sprints.
+          Projects persist locally. Pixel editing, animation, and AI generation remain disabled.
         </span>
       </section>
+
+      <ProjectBrowser />
 
       <section className="status-grid" aria-label="System status">
         <StatusCard label="Studio UI" detail="React workspace is running locally." state="ready" />
@@ -66,7 +69,7 @@ export function DashboardPage() {
         />
         <StatusCard
           label="Local workspace"
-          detail="Project storage is configured locally; CRUD begins in Sprint 1."
+          detail="Project storage and CRUD are configured locally."
           state={healthQuery.data?.workspace_configured ? "ready" : "waiting"}
         />
         <StatusCard

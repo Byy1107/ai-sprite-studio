@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     max_concurrent_ai_jobs: int = 1
     ai_timeout_seconds: int = 600
 
+    @property
+    def database_path(self) -> Path | None:
+        prefix = "sqlite:///"
+        if not self.database_url.startswith(prefix):
+            return None
+        return Path(self.database_url.removeprefix(prefix))
+
 
 @lru_cache
 def get_settings() -> Settings:

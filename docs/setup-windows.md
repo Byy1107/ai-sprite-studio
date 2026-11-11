@@ -8,7 +8,7 @@
 - pnpm 10 via Corepack or a trusted local installation.
 - Python 3.11 64-bit.
 
-The target machine may also contain newer Node or Python versions, but Sprint 0 validation uses the supported baseline above. ComfyUI and model downloads are not required.
+The target machine may also contain newer Node or Python versions, but validation uses the supported baseline above. ComfyUI and model downloads are not required.
 
 ## Clone and environment
 
@@ -39,6 +39,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
+python -m alembic upgrade head
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -50,9 +51,11 @@ If PowerShell blocks virtual-environment activation, run the interpreter directl
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+Project metadata and files remain local. Configure `AI_SPRITE_DATABASE_URL` and `AI_SPRITE_WORKSPACE_DIR` in `.env.local`; never commit the database or project workspace.
+
 ## Optional ComfyUI setting
 
-Sprint 0 records `AI_SPRITE_COMFYUI_HTTP_URL` and `AI_SPRITE_COMFYUI_WS_URL`, but does not connect, submit workflows, or download models. ComfyUI support starts behind a mockable adapter in later sprints.
+The app records `AI_SPRITE_COMFYUI_HTTP_URL` and `AI_SPRITE_COMFYUI_WS_URL`, but does not connect, submit workflows, or download models. ComfyUI support starts behind a mockable adapter in later sprints.
 
 ## Troubleshooting
 

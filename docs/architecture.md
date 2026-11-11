@@ -1,21 +1,22 @@
 # Architecture
 
-AI Sprite Studio is an offline-first modular monorepo. The browser UI communicates with a local FastAPI service. SQLite and project files will be added behind storage boundaries in Sprint 1. ComfyUI remains a separate local process behind an adapter introduced in Sprint 4.
+AI Sprite Studio is an offline-first modular monorepo. The browser UI communicates with a local FastAPI service. SQLite stores searchable metadata while project files remain behind a storage service. ComfyUI remains a separate local process behind an adapter introduced in Sprint 4.
 
-## Sprint 0 boundaries
+## Sprint 1 boundaries
 
 ```text
-React/Vite UI -> HTTP /api/v1 -> FastAPI
-                                  |
-                                  +-- configuration only
+React/Vite UI -> HTTP /api/v1 -> FastAPI -> project service -> SQLite
+                                                       |
+                                                       +-> project storage
 
-Future: FastAPI -> domain services -> SQLite + project files
+Future: FastAPI -> domain services
                            |
                            +-> AIProviderAdapter -> ComfyUI or mock provider
 ```
 
 - React components do not parse ComfyUI workflows.
-- API routes will delegate business behavior to domain services as features arrive.
+- API routes delegate project behavior to a service and domain validation layer.
+- Project folders use atomic `project.json` writes and workspace-local trash.
 - AI generation is intentionally absent from Sprint 0.
 - The backend binds to loopback by default.
 - Runtime paths come from environment settings and are not hardcoded to a drive.
@@ -23,6 +24,7 @@ Future: FastAPI -> domain services -> SQLite + project files
 ## Decisions
 
 - pnpm workspaces provide a lightweight monorepo without introducing a task orchestrator yet.
-- Canvas 2D, database libraries, migrations, and AI libraries are deferred until their owning sprint.
+- SQLAlchemy 2 and Alembic own database access and migrations.
+- Canvas 2D and AI libraries remain deferred until their owning sprint.
 - The UI may display configuration readiness but must not imply that AI generation works.
 
