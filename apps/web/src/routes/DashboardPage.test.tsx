@@ -34,7 +34,7 @@ describe("DashboardPage", () => {
 
     expect(screen.getByRole("heading", { name: "AI Sprite Studio" })).toBeInTheDocument();
     expect(await screen.findByText(/no projects yet/i)).toBeInTheDocument();
-    expect(screen.getByText(/animation and AI remain disabled/i)).toBeInTheDocument();
+    expect(screen.getByText(/comfyui and real models remain disabled/i)).toBeInTheDocument();
   });
 
   it("shows a healthy backend response", async () => {

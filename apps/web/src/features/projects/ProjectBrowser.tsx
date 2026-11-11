@@ -9,6 +9,7 @@ import {
   type Project,
 } from "../../lib/api";
 import { AssetLibrary } from "../assets/AssetLibrary";
+import { GeneratorPanel } from "../generator/GeneratorPanel";
 
 function ProjectCard({ project }: { project: Project }) {
   const queryClient = useQueryClient();
@@ -52,7 +53,12 @@ function ProjectCard({ project }: { project: Project }) {
           {(openMutation.error ?? deleteMutation.error)?.message}
         </p>
       ) : null}
-      {isOpen ? <AssetLibrary projectId={project.id} /> : null}
+      {isOpen ? (
+        <>
+          <GeneratorPanel projectId={project.id} />
+          <AssetLibrary projectId={project.id} />
+        </>
+      ) : null}
     </article>
   );
 }

@@ -11,7 +11,8 @@ React/Vite UI -> HTTP /api/v1 -> FastAPI -> project service -> SQLite
 
 Future: FastAPI -> domain services
                            |
-                           +-> AIProviderAdapter -> ComfyUI or mock provider
+                           +-> AIProviderAdapter -> fake provider (Sprint 4)
+                                                -> ComfyUI adapter (Sprint 5)
 ```
 
 - React components do not parse ComfyUI workflows.
@@ -27,4 +28,6 @@ Future: FastAPI -> domain services
 - SQLAlchemy 2 and Alembic own database access and migrations.
 - Canvas 2D and AI libraries remain deferred until their owning sprint.
 - The UI may display configuration readiness but must not imply that AI generation works.
+- Generation requests cross a provider-neutral domain contract. The UI never receives workflow JSON.
+- A single-worker executor serializes fake generation jobs; persisted state supports restart recovery.
 

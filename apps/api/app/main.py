@@ -3,15 +3,20 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import sessionmaker
 
 from app.api.router import router
 from app.db.base import Base
 from app.db.session import get_engine
+from app.services.generation import GenerationService
 
 
 @asynccontextmanager
 async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
     Base.metadata.create_all(get_engine())
+    factory = sessionmaker(bind=get_engine(), expire_on_commit=False)
+    with factory() as session:
+        GenerationService(session).recover_interrupted()
     yield
 
 

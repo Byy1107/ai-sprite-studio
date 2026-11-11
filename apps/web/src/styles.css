@@ -301,6 +301,71 @@ h1 {
   color: #e49a86 !important;
 }
 
+.generator-panel {
+  margin-top: 18px;
+  border-top: 1px solid rgba(167, 174, 196, 0.13);
+  padding-top: 18px;
+}
+
+.generator-panel__notice {
+  color: #b28a45 !important;
+  font-size: 0.78rem;
+}
+
+.generator-form {
+  display: grid;
+  grid-template-columns: 2fr repeat(2, 1fr);
+  gap: 8px;
+}
+
+.generator-form label {
+  display: grid;
+  gap: 5px;
+  color: #a7aec4;
+  font-size: 0.72rem;
+}
+
+.generator-form input,
+.generator-form select,
+.generator-form textarea {
+  min-width: 0;
+  border: 1px solid rgba(167, 174, 196, 0.2);
+  border-radius: 8px;
+  padding: 9px;
+  color: #f0ede5;
+  background: #111525;
+}
+
+.generator-form button {
+  align-self: end;
+}
+
+.job-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.job-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(11, 13, 23, 0.48);
+}
+
+.job-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.job-row span {
+  color: #67b7b2;
+  font-size: 0.7rem;
+}
+
 .asset-library {
   margin-top: 18px;
   border-top: 1px solid rgba(167, 174, 196, 0.13);
@@ -534,6 +599,10 @@ h1 {
   }
 
   .editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .generator-form {
     grid-template-columns: 1fr;
   }
 }

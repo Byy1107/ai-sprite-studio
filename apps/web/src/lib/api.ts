@@ -48,6 +48,23 @@ export type AssetVersion = {
   created_at: string;
 };
 
+export type GenerationJob = {
+  id: string;
+  project_id: string;
+  asset_id: string | null;
+  provider: string;
+  workflow_id: string;
+  workflow_version: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "canceled";
+  request: Record<string, unknown>;
+  progress: number;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
@@ -133,5 +150,30 @@ export function publishManualVersion(
     method: "POST",
     body: payload,
   });
+}
+
+export function listGenerationJobs(projectId: string, signal?: AbortSignal): Promise<GenerationJob[]> {
+  return request<GenerationJob[]>(`/generation-jobs?project_id=${encodeURIComponent(projectId)}`, {
+    signal,
+  });
+}
+
+export function createGenerationJob(payload: {
+  project_id: string;
+  prompt: string;
+  asset_type: "character" | "item" | "environment" | "tileset";
+  style: "micro_pixel" | "eight_bit";
+  width: number;
+  height: number;
+  seed: number;
+}): Promise<GenerationJob> {
+  return request<GenerationJob>("/generation-jobs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function cancelGenerationJob(jobId: string): Promise<GenerationJob> {
+  return request<GenerationJob>(`/generation-jobs/${jobId}/cancel`, { method: "POST" });
 }
 
