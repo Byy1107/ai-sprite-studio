@@ -42,13 +42,13 @@ export function DashboardPage() {
             An offline-first home for crisp micro-pixel and 8-bit game assets.
           </p>
         </div>
-        <div className="build-tag">Sprint 3 · Pixel editor</div>
+        <div className="build-tag">Sprint 4 · Fake AI queue</div>
       </header>
 
       <section className="notice" aria-label="Sprint status">
-        <strong>Manual pixel editor active.</strong>
+        <strong>Fake generation queue active.</strong>
         <span>
-          Pixel editing and version publishing are ready. Animation and AI remain disabled.
+          The local fake provider is test-ready. ComfyUI and real models remain disabled.
         </span>
       </section>
 
@@ -74,7 +74,7 @@ export function DashboardPage() {
         />
         <StatusCard
           label="ComfyUI adapter"
-          detail="Endpoint configuration is reserved; generation is not implemented yet."
+          detail="A separate adapter boundary is ready; ComfyUI remains disconnected until Sprint 5."
           state="waiting"
         />
       </section>

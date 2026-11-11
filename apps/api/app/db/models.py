@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -65,4 +65,43 @@ class AssetVersionRecord(Base):
     height: Mapped[int] = mapped_column(Integer)
     source: Mapped[str] = mapped_column(String(24))
     change_summary: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class GenerationJobRecord(Base):
+    __tablename__ = "generation_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    asset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("assets.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), default="fake")
+    workflow_id: Mapped[str] = mapped_column(String(80), default="fake-text-to-sprite")
+    workflow_version: Mapped[str] = mapped_column(String(24), default="1")
+    status: Mapped[str] = mapped_column(String(24), index=True)
+    request_json: Mapped[str] = mapped_column(Text)
+    provider_job_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    progress: Mapped[float] = mapped_column(Float, default=0.0)
+    error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class GenerationResultRecord(Base):
+    __tablename__ = "generation_results"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    job_id: Mapped[str] = mapped_column(
+        ForeignKey("generation_jobs.id", ondelete="CASCADE"), index=True
+    )
+    file_path: Mapped[str] = mapped_column(Text, unique=True)
+    thumbnail_path: Mapped[str] = mapped_column(Text)
+    seed: Mapped[int] = mapped_column(Integer)
+    metadata_json: Mapped[str] = mapped_column(Text)
+    selected: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

@@ -6,6 +6,9 @@ All notable changes to AI Sprite Studio are documented here.
 
 ### Added
 
+- Sprint 4 provider-independent generation contracts and deterministic fake provider.
+- Persisted serial generation queue with cancellation, results, and restart recovery.
+- Fake generator UI with explicit warnings that ComfyUI and real models remain disconnected.
 - Sprint 3 manual pixel editor with nearest-neighbor canvas rendering and core drawing tools.
 - Undo/redo history, palette controls, pan/zoom/grid, local drafts, and manual version publishing.
 - Sprint 2 PNG asset import, thumbnails, checksums, and immutable version history.
