@@ -35,7 +35,10 @@ Allow users to create, list, open, update, and safely remove local projects whil
 
 - Backend project CRUD, persistence, duplicate, path safety, and Windows reserved-name tests.
 - Frontend project workspace, health, empty state, and create form tests.
-- Workspace lint, type-check, test, build, and migration upgrade are required before completion.
+- Backend Ruff, mypy, and pytest passed; 8 backend tests passed.
+- Alembic empty-database upgrade, downgrade, and second upgrade passed.
+- Frontend ESLint, TypeScript type-check, Vitest, and production build passed; 3 frontend tests passed.
+- `git diff --check` passed.
 
 ## Manual verification
 
@@ -45,6 +48,7 @@ Create a project in the browser, restart the backend, and confirm it remains lis
 
 - Editing a project name intentionally does not rename its folder or stable slug.
 - Trash restore and permanent cleanup are not part of Sprint 1.
+- Local backend validation used Python 3.13 because this Windows installation could not execute its newly installed Python 3.11 runtime due to the host CET issue; CI remains the Python 3.11 acceptance environment.
 
 ## Risks and next recommendation
 
