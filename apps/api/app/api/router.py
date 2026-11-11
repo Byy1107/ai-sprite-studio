@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
@@ -17,7 +19,7 @@ class HealthResponse(BaseModel):
 
 
 @router.get("/health", response_model=HealthResponse, tags=["system"])
-def health(settings: Settings = Depends(get_settings)) -> HealthResponse:
+def health(settings: Annotated[Settings, Depends(get_settings)]) -> HealthResponse:
     return HealthResponse(
         status="ok",
         service="ai-sprite-studio-api",
@@ -27,4 +29,3 @@ def health(settings: Settings = Depends(get_settings)) -> HealthResponse:
         database_configured=settings.database_url.startswith("sqlite"),
         comfyui_configured=bool(settings.comfyui_http_url),
     )
-
