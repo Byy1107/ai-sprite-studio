@@ -6,6 +6,9 @@ All notable changes to AI Sprite Studio are documented here.
 
 ### Added
 
+- Sprint 2 PNG asset import, thumbnails, checksums, and immutable version history.
+- Asset library UI for character, item, environment, and tileset metadata.
+- Safe restore behavior that creates a new active version without deleting history.
 - Sprint 1 SQLite project schema and initial Alembic migration.
 - Safe local project storage with `project.json`, Windows name validation, and trash behavior.
 - Project CRUD API and local project browser UI.
