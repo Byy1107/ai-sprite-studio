@@ -22,10 +22,39 @@ export type Project = {
   last_opened_at: string | null;
 };
 
+export type Asset = {
+  id: string;
+  project_id: string;
+  name: string;
+  asset_type: "character" | "item" | "environment" | "tileset";
+  style: "micro_pixel" | "eight_bit" | "custom";
+  width: number;
+  height: number;
+  color_mode: string;
+  active_version_id: string | null;
+  thumbnail_path: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssetVersion = {
+  id: string;
+  asset_id: string;
+  version_number: number;
+  parent_version_id: string | null;
+  checksum: string;
+  source: string;
+  change_summary: string;
+  created_at: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
-    headers: init?.body ? { "Content-Type": "application/json", ...init.headers } : init?.headers,
+    headers:
+      init?.body && !(init.body instanceof FormData)
+        ? { "Content-Type": "application/json", ...init.headers }
+        : init?.headers,
   });
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
@@ -65,5 +94,26 @@ export function openProject(projectId: string): Promise<Project> {
 
 export function deleteProject(projectId: string): Promise<void> {
   return request<void>(`/projects/${projectId}`, { method: "DELETE" });
+}
+
+export function listAssets(projectId: string, signal?: AbortSignal): Promise<Asset[]> {
+  return request<Asset[]>(`/projects/${projectId}/assets`, { signal });
+}
+
+export function importAsset(projectId: string, payload: FormData): Promise<Asset> {
+  return request<Asset>(`/projects/${projectId}/assets/import`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function listAssetVersions(assetId: string, signal?: AbortSignal): Promise<AssetVersion[]> {
+  return request<AssetVersion[]>(`/assets/${assetId}/versions`, { signal });
+}
+
+export function restoreAssetVersion(assetId: string, versionId: string): Promise<AssetVersion> {
+  return request<AssetVersion>(`/assets/${assetId}/versions/${versionId}/restore`, {
+    method: "POST",
+  });
 }
 

@@ -301,6 +301,88 @@ h1 {
   color: #e49a86 !important;
 }
 
+.asset-library {
+  margin-top: 18px;
+  border-top: 1px solid rgba(167, 174, 196, 0.13);
+  padding-top: 18px;
+}
+
+.asset-library__heading,
+.version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.asset-library__heading h3,
+.version-history h4 {
+  margin: 0;
+  color: #f0ede5;
+}
+
+.asset-library__heading span,
+.asset-empty {
+  color: #6f7898;
+  font-size: 0.75rem;
+}
+
+.asset-import {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.asset-import input,
+.asset-import select {
+  min-width: 0;
+  border: 1px solid rgba(167, 174, 196, 0.2);
+  border-radius: 8px;
+  padding: 9px;
+  color: #f0ede5;
+  background: #111525;
+}
+
+.asset-import input[type="file"],
+.asset-import button {
+  grid-column: span 2;
+}
+
+.asset-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.asset-tile {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 8px;
+  text-align: left;
+}
+
+.asset-tile span {
+  color: #a7aec4;
+  font-size: 0.78rem;
+}
+
+.version-history {
+  margin-top: 16px;
+  border-radius: 10px;
+  padding: 14px;
+  background: rgba(11, 13, 23, 0.48);
+}
+
+.version-row {
+  margin-top: 9px;
+  color: #a7aec4;
+  font-size: 0.78rem;
+}
+
+.version-row code {
+  color: #67b7b2;
+}
+
 @media (max-width: 720px) {
   .app-shell {
     padding-top: 32px;
@@ -326,6 +408,16 @@ h1 {
 
   .project-grid {
     grid-template-columns: 1fr;
+  }
+
+  .asset-import,
+  .asset-tile {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-import input[type="file"],
+  .asset-import button {
+    grid-column: auto;
   }
 }
 

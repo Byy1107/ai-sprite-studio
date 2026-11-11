@@ -8,12 +8,17 @@ import {
   openProject,
   type Project,
 } from "../../lib/api";
+import { AssetLibrary } from "../assets/AssetLibrary";
 
 function ProjectCard({ project }: { project: Project }) {
   const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
   const openMutation = useMutation({
     mutationFn: () => openProject(project.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
+    onSuccess: () => {
+      setIsOpen(true);
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
   });
   const deleteMutation = useMutation({
     mutationFn: () => deleteProject(project.id),
@@ -47,6 +52,7 @@ function ProjectCard({ project }: { project: Project }) {
           {(openMutation.error ?? deleteMutation.error)?.message}
         </p>
       ) : null}
+      {isOpen ? <AssetLibrary projectId={project.id} /> : null}
     </article>
   );
 }
