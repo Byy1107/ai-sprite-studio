@@ -1,13 +1,14 @@
 # AI Sprite Studio
 
-AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. The project is being delivered incrementally; Sprint 0 provides the engineering baseline only.
+AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. The project is being delivered incrementally; Sprint 1 adds the local project workspace.
 
-## Sprint 0 status
+## Sprint 1 status
 
 - React, TypeScript, Vite, and Tailwind frontend shell.
 - FastAPI backend with `/api/v1/health`.
 - Frontend status cards for the browser application, backend, local workspace, database configuration, and ComfyUI configuration.
 - Unit tests, linting, type checking, build scripts, and Windows setup documentation.
+- SQLite project metadata, project folders, safe trash behavior, and project CRUD UI.
 - No AI models are downloaded and generation is not implemented yet.
 
 ## Requirements
@@ -17,7 +18,7 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - Python 3.11 64-bit. Python 3.12+ is not part of the supported Sprint 0 matrix.
 - Git.
 
-ComfyUI is optional during Sprint 0. Its default endpoint is recorded for future adapters, but the application must open without it.
+ComfyUI is optional during Sprint 1. Its default endpoint is recorded for future adapters, but the application must open without it.
 
 ## Quick start
 
@@ -34,6 +35,7 @@ cd apps/api
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
+python -m alembic upgrade head
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 

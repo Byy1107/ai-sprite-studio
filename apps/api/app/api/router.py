@@ -3,9 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.api.projects import router as projects_router
 from app.core.config import Settings, get_settings
 
 router = APIRouter(prefix="/api/v1")
+router.include_router(projects_router)
 
 
 class HealthResponse(BaseModel):
