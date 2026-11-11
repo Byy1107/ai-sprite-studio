@@ -38,6 +38,7 @@ No database schema or persisted project format is introduced in Sprint 0.
 - `pnpm install`: blocked because this managed environment denies access to `registry.npmjs.org`.
 - `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`: attempted but blocked by the same missing dependency/network condition.
 - `python -m pytest`, `python -m ruff`, and `python -m mypy`: attempted but unavailable because Python development dependencies are not installed.
+- GitHub Actions CI run `#8` on `sprint/00-engineering-baseline`: passed on a clean runner. Frontend lint, type-check, tests, and production build passed with Node.js 22; backend Ruff, mypy, and pytest passed with Python 3.11.
 
 ## Manual verification
 
@@ -46,9 +47,8 @@ Start the API and frontend, open the dashboard, and verify that backend health c
 ## Known issues
 
 - The current workstation reports Python 3.13; install or select Python 3.11 before backend dependency validation.
-- Package installation is blocked in the current sandbox, so dependency-backed lint, tests, type checking, and build remain to be run in an environment with registry access.
-- The repository branch could not be changed because the managed environment denied writes to Git reference lock files; the working tree currently remains on `main`.
-- The master plan source is outside this task workspace and was read as the sprint authority, but is not duplicated into this repository.
+- Local package installation remains blocked in the managed Codex sandbox, but the same dependency-backed checks passed in GitHub Actions.
+- The master plan source remains user-maintained outside the repository and was used as the sprint authority.
 - ComfyUI health is configuration-only in this sprint.
 
 ## Risks and next recommendation
