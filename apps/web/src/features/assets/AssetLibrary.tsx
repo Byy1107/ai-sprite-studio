@@ -8,6 +8,7 @@ import {
   restoreAssetVersion,
   type Asset,
 } from "../../lib/api";
+import { PixelEditor } from "../editor/PixelEditor";
 
 function VersionHistory({ asset }: { asset: Asset }) {
   const queryClient = useQueryClient();
@@ -100,6 +101,7 @@ export function AssetLibrary({ projectId }: { projectId: string }) {
           </button>
         ))}
       </div>
+      {selected ? <PixelEditor asset={selected} /> : null}
       {selected ? <VersionHistory asset={selected} /> : null}
     </section>
   );

@@ -1,8 +1,8 @@
 # AI Sprite Studio
 
-AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. The project is being delivered incrementally; Sprint 2 adds local PNG asset import and version history.
+AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. The project is being delivered incrementally; Sprint 3 adds the manual pixel editor core.
 
-## Sprint 2 status
+## Sprint 3 status
 
 - React, TypeScript, Vite, and Tailwind frontend shell.
 - FastAPI backend with `/api/v1/health`.
@@ -11,6 +11,8 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - SQLite project metadata, project folders, safe trash behavior, and project CRUD UI.
 - PNG import for character, item, environment, and tileset assets with thumbnails and checksums.
 - Immutable asset versions with restore-as-new-version behavior.
+- Canvas 2D pixel editor with pencil, eraser, picker, fill, line, rectangle, pan, zoom, grid, palette, and undo/redo.
+- Local editor drafts and publishing manual edits as immutable PNG versions.
 - No AI models are downloaded and generation is not implemented yet.
 
 ## Requirements

@@ -86,6 +86,53 @@ class AssetService:
         )
         return list(self.session.scalars(statement))
 
+    def get_version_path(self, version_id: str) -> Path:
+        version = self.session.get(AssetVersionRecord, version_id)
+        if version is None:
+            raise AssetNotFoundError("Asset version was not found.")
+        asset = self.get_asset(version.asset_id)
+        project = self.projects.get_project(asset.project_id)
+        path = Path(project.root_path) / version.file_path
+        if not path.is_file():
+            raise AssetNotFoundError("Asset version file was not found.")
+        return path
+
+    def create_manual_version(
+        self, asset_id: str, content: bytes, change_summary: str
+    ) -> AssetVersionRecord:
+        asset = self.get_asset(asset_id)
+        metadata = self.storage.inspect_png(content)
+        if (metadata.width, metadata.height) != (asset.width, asset.height):
+            raise ValueError("Manual versions must preserve the asset dimensions.")
+        project = self.projects.get_project(asset.project_id)
+        next_number = self.session.scalar(
+            select(func.max(AssetVersionRecord.version_number)).where(
+                AssetVersionRecord.asset_id == asset_id
+            )
+        )
+        version_id = str(uuid4())
+        version_path, thumbnail_path = self.storage.write_version(
+            Path(project.root_path), asset_id, version_id, content
+        )
+        version = AssetVersionRecord(
+            id=version_id,
+            asset_id=asset_id,
+            version_number=int(next_number or 0) + 1,
+            parent_version_id=asset.active_version_id,
+            file_path=str(version_path.relative_to(project.root_path)),
+            checksum=metadata.checksum,
+            width=metadata.width,
+            height=metadata.height,
+            source="manual",
+            change_summary=change_summary.strip() or "Manual pixel edit",
+        )
+        self.session.add(version)
+        asset.active_version_id = version.id
+        asset.color_mode = metadata.color_mode
+        asset.thumbnail_path = str(thumbnail_path.relative_to(project.root_path))
+        self.session.commit()
+        return version
+
     def restore_version(self, asset_id: str, version_id: str) -> AssetVersionRecord:
         asset = self.get_asset(asset_id)
         source = self.session.get(AssetVersionRecord, version_id)

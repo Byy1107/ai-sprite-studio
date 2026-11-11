@@ -383,6 +383,119 @@ h1 {
   color: #67b7b2;
 }
 
+.pixel-editor {
+  margin-top: 18px;
+  border: 1px solid rgba(167, 174, 196, 0.15);
+  border-radius: 12px;
+  padding: 14px;
+  background: rgba(11, 13, 23, 0.62);
+}
+
+.pixel-editor__header,
+.editor-actions,
+.editor-toolbar,
+.palette-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pixel-editor__header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.pixel-editor__header h4,
+.pixel-editor__header span {
+  margin: 0;
+}
+
+.pixel-editor__header span,
+.editor-status,
+.palette-panel {
+  color: #a7aec4;
+  font-size: 0.75rem;
+}
+
+.editor-toolbar {
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.editor-toolbar button[aria-pressed="true"] {
+  border-color: #67b7b2;
+  color: #67b7b2;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.palette-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.palette-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.palette-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 26px);
+}
+
+.palette-swatches button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 5px;
+}
+
+.editor-viewport {
+  min-height: 320px;
+  max-height: 520px;
+  overflow: auto;
+  border-radius: 8px;
+  background-color: #d8d2c4;
+  background-image:
+    linear-gradient(45deg, #a7aec4 25%, transparent 25%),
+    linear-gradient(-45deg, #a7aec4 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #a7aec4 75%),
+    linear-gradient(-45deg, transparent 75%, #a7aec4 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+
+.canvas-wrap {
+  position: relative;
+  margin: 20px;
+  touch-action: none;
+}
+
+.canvas-wrap canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.pixel-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(11, 13, 23, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(11, 13, 23, 0.22) 1px, transparent 1px);
+}
+
+.editor-status {
+  margin: 10px 0 0;
+}
+
 @media (max-width: 720px) {
   .app-shell {
     padding-top: 32px;
@@ -418,6 +531,10 @@ h1 {
   .asset-import input[type="file"],
   .asset-import button {
     grid-column: auto;
+  }
+
+  .editor-layout {
+    grid-template-columns: 1fr;
   }
 }
 
