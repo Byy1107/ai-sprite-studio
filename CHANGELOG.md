@@ -6,6 +6,8 @@ All notable changes to AI Sprite Studio are documented here.
 
 ### Added
 
+- Sprint 3 manual pixel editor with nearest-neighbor canvas rendering and core drawing tools.
+- Undo/redo history, palette controls, pan/zoom/grid, local drafts, and manual version publishing.
 - Sprint 2 PNG asset import, thumbnails, checksums, and immutable version history.
 - Asset library UI for character, item, environment, and tileset metadata.
 - Safe restore behavior that creates a new active version without deleting history.

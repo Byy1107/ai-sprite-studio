@@ -28,6 +28,14 @@ def png_bytes() -> bytes:
     return output.getvalue()
 
 
+def edited_png_bytes(size: tuple[int, int] = (16, 24)) -> bytes:
+    output = BytesIO()
+    image = Image.new("RGBA", size, (0, 0, 0, 0))
+    image.putpixel((2, 3), (178, 138, 69, 255))
+    image.save(output, format="PNG")
+    return output.getvalue()
+
+
 def create_project(client: TestClient) -> dict[str, object]:
     response = client.post("/api/v1/projects", json={"name": "Asset Test"})
     assert response.status_code == 201
@@ -77,3 +85,34 @@ def test_corrupt_or_unsupported_import_is_rejected(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert client.get(f"/api/v1/projects/{project['id']}/assets").json() == []
+
+
+def test_manual_edit_publishes_new_version_and_content(client: TestClient) -> None:
+    project = create_project(client)
+    imported = client.post(
+        f"/api/v1/projects/{project['id']}/assets/import",
+        data={"name": "Sky Knight", "asset_type": "character", "style": "eight_bit"},
+        files={"file": ("hero.png", png_bytes(), "image/png")},
+    ).json()
+
+    published = client.post(
+        f"/api/v1/assets/{imported['id']}/versions",
+        data={"change_summary": "Gold visor pixel"},
+        files={"file": ("edited.png", edited_png_bytes(), "image/png")},
+    )
+
+    assert published.status_code == 201
+    version = published.json()
+    assert version["version_number"] == 2
+    assert version["source"] == "manual"
+    assert version["parent_version_id"] == imported["active_version_id"]
+    content = client.get(f"/api/v1/asset-versions/{version['id']}/content")
+    assert content.status_code == 200
+    assert content.headers["content-type"] == "image/png"
+    assert content.content == edited_png_bytes()
+
+    wrong_size = client.post(
+        f"/api/v1/assets/{imported['id']}/versions",
+        files={"file": ("wrong.png", edited_png_bytes((8, 8)), "image/png")},
+    )
+    assert wrong_size.status_code == 422

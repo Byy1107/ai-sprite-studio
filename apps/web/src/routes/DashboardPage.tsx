@@ -42,13 +42,13 @@ export function DashboardPage() {
             An offline-first home for crisp micro-pixel and 8-bit game assets.
           </p>
         </div>
-        <div className="build-tag">Sprint 2 · Asset versioning</div>
+        <div className="build-tag">Sprint 3 · Pixel editor</div>
       </header>
 
       <section className="notice" aria-label="Sprint status">
-        <strong>Local asset library active.</strong>
+        <strong>Manual pixel editor active.</strong>
         <span>
-          PNG import and version history are ready. Editing, animation, and AI remain disabled.
+          Pixel editing and version publishing are ready. Animation and AI remain disabled.
         </span>
       </section>
 

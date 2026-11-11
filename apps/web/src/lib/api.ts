@@ -117,3 +117,21 @@ export function restoreAssetVersion(assetId: string, versionId: string): Promise
   });
 }
 
+export function assetVersionContentUrl(versionId: string): string {
+  return `${apiBaseUrl}/asset-versions/${versionId}/content`;
+}
+
+export function publishManualVersion(
+  assetId: string,
+  file: Blob,
+  changeSummary: string,
+): Promise<AssetVersion> {
+  const payload = new FormData();
+  payload.set("file", file, "manual-edit.png");
+  payload.set("change_summary", changeSummary);
+  return request<AssetVersion>(`/assets/${assetId}/versions`, {
+    method: "POST",
+    body: payload,
+  });
+}
+

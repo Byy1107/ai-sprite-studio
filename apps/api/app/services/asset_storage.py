@@ -55,6 +55,16 @@ class AssetStorage:
         self._atomic_write(target, source_path.read_bytes())
         return target
 
+    def write_version(
+        self, project_root: Path, asset_id: str, version_id: str, content: bytes
+    ) -> tuple[Path, Path]:
+        asset_root = project_root / "assets" / asset_id
+        version_path = asset_root / "versions" / f"{version_id}.png"
+        thumbnail_path = asset_root / "thumbnails" / "preview.png"
+        self._atomic_write(version_path, content)
+        self._write_thumbnail(thumbnail_path, content)
+        return version_path, thumbnail_path
+
     @staticmethod
     def _atomic_write(target: Path, content: bytes) -> None:
         temporary = target.with_suffix(".png.tmp")

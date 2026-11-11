@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
@@ -111,6 +112,32 @@ def list_versions(
             for version in service.list_versions(asset_id)
         ]
     except AssetNotFoundError as error:
+        raise asset_error(error) from error
+
+
+@router.get("/asset-versions/{version_id}/content", response_class=FileResponse)
+def get_version_content(version_id: str, service: AssetServiceDependency) -> FileResponse:
+    try:
+        return FileResponse(service.get_version_path(version_id), media_type="image/png")
+    except AssetNotFoundError as error:
+        raise asset_error(error) from error
+
+
+@router.post(
+    "/assets/{asset_id}/versions",
+    response_model=AssetVersionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_manual_version(
+    asset_id: str,
+    service: AssetServiceDependency,
+    file: Annotated[UploadFile, File()],
+    change_summary: Annotated[str, Form(max_length=240)] = "Manual pixel edit",
+) -> AssetVersionResponse:
+    try:
+        version = service.create_manual_version(asset_id, await file.read(), change_summary)
+        return AssetVersionResponse.model_validate(version)
+    except (AssetNotFoundError, InvalidAssetError, ValueError) as error:
         raise asset_error(error) from error
 
 
