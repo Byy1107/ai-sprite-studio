@@ -77,7 +77,11 @@ def test_fake_job_succeeds_and_is_deterministic(client: TestClient) -> None:
     results = client.get(f"/api/v1/generation-jobs/{completed['id']}/results").json()
     assert len(results) == 1
     assert results[0]["seed"] == 42
-    assert results[0]["metadata"] == {"deterministic": True, "provider": "fake"}
+    assert results[0]["metadata"] == {
+        "deterministic": True,
+        "preset_id": None,
+        "provider": "fake",
+    }
     assert (Path(str(project["root_path"])) / results[0]["file_path"]).is_file()
 
 
@@ -140,6 +144,24 @@ def test_invalid_project_is_rejected(client: TestClient) -> None:
         "/api/v1/generation-jobs", json=generation_payload("missing-project")
     )
     assert response.status_code == 404
+
+
+def test_presets_are_listed_and_type_checked(client: TestClient) -> None:
+    presets = client.get("/api/v1/generation-presets")
+    assert presets.status_code == 200
+    assert {preset["asset_type"] for preset in presets.json()} == {
+        "character",
+        "item",
+        "environment",
+        "tileset",
+    }
+    project = create_project(client)
+    payload = generation_payload(project["id"])
+    payload["asset_type"] = "item"
+    payload["preset_id"] = "character-hero"
+    response = client.post("/api/v1/generation-jobs", json=payload)
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Preset does not match asset type"
 
 
 def test_generated_candidate_can_be_accepted_as_asset_version(client: TestClient) -> None:

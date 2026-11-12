@@ -21,6 +21,8 @@ class GenerationRequest:
     width: int
     height: int
     seed: int
+    preset_id: str | None = None
+    negative_prompt: str = "blur, anti-aliasing"
 
 
 @dataclass(frozen=True)

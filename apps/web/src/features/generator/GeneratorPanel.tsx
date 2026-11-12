@@ -1,4 +1,4 @@
-import { FormEvent } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -7,9 +7,20 @@ import {
   createGenerationJob,
   listGenerationResults,
   listGenerationJobs,
+  listGenerationPresets,
   type GenerationJob,
   listAssets,
 } from "../../lib/api";
+
+const generatorTypes = ["character", "item", "environment", "tileset"] as const;
+type GeneratorType = (typeof generatorTypes)[number];
+
+const detailLabels: Record<GeneratorType, string> = {
+  character: "Role, outfit, and pose",
+  item: "Material and function",
+  environment: "Location, mood, and lighting",
+  tileset: "Terrain modules and edge rules",
+};
 
 function JobResults({ job }: { job: GenerationJob }) {
   const queryClient = useQueryClient();
@@ -44,6 +55,17 @@ function JobResults({ job }: { job: GenerationJob }) {
 
 export function GeneratorPanel({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
+  const [assetType, setAssetType] = useState<GeneratorType>("character");
+  const [presetId, setPresetId] = useState("");
+  const presetsQuery = useQuery({
+    queryKey: ["generation-presets"],
+    queryFn: ({ signal }) => listGenerationPresets(signal),
+  });
+  const availablePresets = useMemo(
+    () => presetsQuery.data?.filter((preset) => preset.asset_type === assetType) ?? [],
+    [assetType, presetsQuery.data],
+  );
+  const selectedPreset = availablePresets.find((preset) => preset.id === presetId) ?? availablePresets[0];
   const assetsQuery = useQuery({
     queryKey: ["assets", projectId],
     queryFn: ({ signal }) => listAssets(projectId, signal),
@@ -66,62 +88,89 @@ export function GeneratorPanel({ projectId }: { projectId: string }) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const detail = String(form.get("detail") ?? "").trim();
+    const basePrompt = String(form.get("prompt") ?? "").trim();
     createMutation.mutate({
       project_id: projectId,
       asset_id: String(form.get("asset_id") ?? "") || null,
-      prompt: String(form.get("prompt") ?? ""),
-      asset_type: String(form.get("asset_type")) as "character",
-      style: String(form.get("style")) as "eight_bit",
+      prompt: detail ? `${basePrompt}, ${detail}` : basePrompt,
+      asset_type: assetType,
+      style: String(form.get("style")) as "micro_pixel" | "eight_bit",
       width: Number(form.get("width")),
       height: Number(form.get("height")),
       seed: Number(form.get("seed")),
+      preset_id: selectedPreset?.id ?? null,
+      negative_prompt: String(form.get("negative_prompt") ?? ""),
     });
   }
 
   return (
     <section className="generator-panel" aria-labelledby={`generator-${projectId}`}>
       <div className="asset-library__heading">
-        <h3 id={`generator-${projectId}`}>Fake generator</h3>
-        <span>Deterministic · local · no GPU</span>
+        <h3 id={`generator-${projectId}`}>Specialized generators</h3>
+        <span>Preset-driven · local · provider-neutral</span>
       </div>
       <p className="generator-panel__notice">
-        Development preview only. ComfyUI and real model generation are not connected.
+        Fake works offline; ComfyUI is used only when explicitly enabled. Presets never download models.
       </p>
-      <form className="generator-form" onSubmit={submit}>
+      <div className="generator-types" role="group" aria-label="Generator type">
+        {generatorTypes.map((type) => (
+          <button
+            key={type}
+            type="button"
+            aria-pressed={assetType === type}
+            onClick={() => {
+              setAssetType(type);
+              setPresetId("");
+            }}
+          >
+            {type[0].toUpperCase() + type.slice(1)}
+          </button>
+        ))}
+      </div>
+      <form className="generator-form" key={`${assetType}:${selectedPreset?.id}`} onSubmit={submit}>
         <label>
-          Prompt
-          <textarea name="prompt" required maxLength={1000} defaultValue="dark fantasy sky guardian" />
+          Preset
+          <select value={selectedPreset?.id ?? ""} onChange={(event) => setPresetId(event.target.value)}>
+            {availablePresets.map((preset) => (
+              <option key={preset.id} value={preset.id}>{preset.label}</option>
+            ))}
+          </select>
+        </label>
+        {selectedPreset ? <p className="generator-panel__notice">{selectedPreset.description}</p> : null}
+        <label>
+          Base prompt
+          <textarea name="prompt" required maxLength={1000} defaultValue={selectedPreset?.prompt ?? "pixel art game asset"} />
+        </label>
+        <label>
+          {detailLabels[assetType]}
+          <input name="detail" maxLength={300} placeholder="Optional creative direction" />
+        </label>
+        <label>
+          Avoid
+          <textarea name="negative_prompt" maxLength={1000} defaultValue={selectedPreset?.negative_prompt ?? "blur, anti-aliasing"} />
         </label>
         <label>
           Target asset
           <select name="asset_id" defaultValue="">
             <option value="">Candidate only</option>
-            {assetsQuery.data?.map((asset) => (
+            {assetsQuery.data?.filter((asset) => asset.asset_type === assetType).map((asset) => (
               <option key={asset.id} value={asset.id}>{asset.name} ({asset.width}×{asset.height})</option>
             ))}
           </select>
         </label>
         <label>
-          Asset type
-          <select name="asset_type" defaultValue="character">
-            <option value="character">Character</option>
-            <option value="item">Item</option>
-            <option value="environment">Environment</option>
-            <option value="tileset">Tileset</option>
-          </select>
-        </label>
-        <label>
           Style
-          <select name="style" defaultValue="eight_bit">
+          <select name="style" defaultValue={selectedPreset?.style ?? "eight_bit"}>
             <option value="micro_pixel">Micro pixel</option>
             <option value="eight_bit">8-bit</option>
           </select>
         </label>
-        <label>Width<input name="width" type="number" min="8" max="256" defaultValue="32" /></label>
-        <label>Height<input name="height" type="number" min="8" max="256" defaultValue="32" /></label>
+        <label>Width<input name="width" type="number" min="8" max="256" defaultValue={selectedPreset?.width ?? 32} /></label>
+        <label>Height<input name="height" type="number" min="8" max="256" defaultValue={selectedPreset?.height ?? 32} /></label>
         <label>Seed<input name="seed" type="number" min="0" defaultValue="1" /></label>
         <button type="submit" disabled={createMutation.isPending}>
-          {createMutation.isPending ? "Queueing…" : "Run fake generation"}
+          {createMutation.isPending ? "Queueing…" : `Generate ${assetType}`}
         </button>
       </form>
       {createMutation.isError || jobsQuery.isError ? (

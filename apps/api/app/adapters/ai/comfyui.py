@@ -45,6 +45,7 @@ class ComfyUIProvider:
         workflow = deepcopy(self.template)
         workflow["4"]["inputs"]["ckpt_name"] = self.checkpoint
         workflow["6"]["inputs"]["text"] = request.prompt
+        workflow["7"]["inputs"]["text"] = request.negative_prompt
         workflow["3"]["inputs"]["seed"] = request.seed
         workflow["5"]["inputs"].update({"width": request.width, "height": request.height})
         try:
@@ -71,6 +72,7 @@ class ComfyUIProvider:
                             "prompt_id": prompt_id,
                             "checkpoint": self.checkpoint,
                             "workflow": "sd15-text-to-sprite-v1",
+                            "preset_id": request.preset_id,
                         },
                     )
                 time.sleep(0.25)

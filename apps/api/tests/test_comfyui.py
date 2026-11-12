@@ -53,6 +53,7 @@ def test_comfyui_generation_maps_workflow_and_retrieves_png(
     assert result.image_bytes == b"png-bytes"
     assert submitted["4"]["inputs"]["ckpt_name"] == "pixel.safetensors"
     assert submitted["5"]["inputs"]["height"] == 48
+    assert submitted["7"]["inputs"]["text"] == "blur, anti-aliasing"
     assert result.metadata["workflow"] == "sd15-text-to-sprite-v1"
 
 
