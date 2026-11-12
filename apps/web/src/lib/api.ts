@@ -119,6 +119,18 @@ export function getAIHealth(signal?: AbortSignal): Promise<AIHealthResponse> {
   return request<AIHealthResponse>("/system/ai/health", { signal });
 }
 
+export function getAICapabilities(signal?: AbortSignal): Promise<{
+  provider: string;
+  status: string;
+  detected_nodes: string[];
+  lora_models: string[];
+  controlnet_models: string[];
+  enabled_features: Record<string, boolean>;
+  message: string;
+}> {
+  return request("/system/ai/capabilities", { signal });
+}
+
 export function listProjects(signal?: AbortSignal): Promise<Project[]> {
   return request<Project[]>("/projects", { signal });
 }
@@ -205,6 +217,15 @@ export function createGenerationJob(payload: {
   seed: number;
   preset_id?: string | null;
   negative_prompt?: string;
+  reference_asset_id?: string | null;
+  reference_version_id?: string | null;
+  reference_weight?: number;
+  lora_name?: string | null;
+  lora_weight?: number;
+  controlnet_name?: string | null;
+  controlnet_strength?: number;
+  controlnet_start?: number;
+  controlnet_end?: number;
 }): Promise<GenerationJob> {
   return request<GenerationJob>("/generation-jobs", {
     method: "POST",

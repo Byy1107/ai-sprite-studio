@@ -1,9 +1,11 @@
+from dataclasses import replace
 from typing import Any
+from unittest.mock import patch
 
 import httpx
 import pytest
 
-from app.adapters.ai.comfyui import ComfyUIProvider
+from app.adapters.ai.comfyui import ComfyUIError, ComfyUIProvider
 from app.domain.generation import GenerationRequest
 
 
@@ -20,8 +22,10 @@ def request() -> GenerationRequest:
     )
 
 
+@pytest.mark.parametrize("lora_name", [None, "styles/pixel.safetensors"])
 def test_comfyui_generation_maps_workflow_and_retrieves_png(
     monkeypatch: pytest.MonkeyPatch,
+    lora_name: str | None,
 ) -> None:
     submitted: dict[str, Any] = {}
 
@@ -32,6 +36,14 @@ def test_comfyui_generation_maps_workflow_and_retrieves_png(
         )
 
     def get(url: str, **_kwargs: Any) -> httpx.Response:
+        if url.endswith("/object_info"):
+            return httpx.Response(
+                200, json={"LoraLoader": {"input": {"required": {
+                    "model": ["MODEL"], "clip": ["CLIP"],
+                    "lora_name": [["styles/pixel.safetensors"]],
+                    "strength_model": ["FLOAT"], "strength_clip": ["FLOAT"],
+                }}}}, request=httpx.Request("GET", url),
+            )
         if url.endswith("/history/prompt-1"):
             return httpx.Response(
                 200,
@@ -47,14 +59,38 @@ def test_comfyui_generation_maps_workflow_and_retrieves_png(
     monkeypatch.setattr(httpx, "post", post)
     monkeypatch.setattr(httpx, "get", get)
     result = ComfyUIProvider("http://127.0.0.1:8188", "pixel.safetensors", 2).generate(
-        request()
+        replace(request(), lora_name=lora_name, lora_weight=0.75)
     )
 
     assert result.image_bytes == b"png-bytes"
     assert submitted["4"]["inputs"]["ckpt_name"] == "pixel.safetensors"
     assert submitted["5"]["inputs"]["height"] == 48
     assert submitted["7"]["inputs"]["text"] == "blur, anti-aliasing"
-    assert result.metadata["workflow"] == "sd15-text-to-sprite-v1"
+    if lora_name:
+        assert submitted["10"]["inputs"]["lora_name"] == lora_name
+        assert submitted["10"]["inputs"]["strength_model"] == 0.75
+        assert submitted["10"]["inputs"]["strength_clip"] == 0.75
+        assert submitted["3"]["inputs"]["model"] == ["10", 0]
+        assert submitted["6"]["inputs"]["clip"] == ["10", 1]
+        assert submitted["7"]["inputs"]["clip"] == ["10", 1]
+        assert result.metadata["workflow"] == "sd15-text-to-sprite-lora-v1"
+        assert result.metadata["lora_applied"] is True
+    else:
+        assert "10" not in submitted
+        assert result.metadata["workflow"] == "sd15-text-to-sprite-v1"
+
+
+@pytest.mark.parametrize("catalogue", [{}, {"LoraLoader": {}}])
+def test_missing_lora_never_submits_generation(catalogue: dict[str, object]) -> None:
+    with (
+        patch("app.adapters.ai.comfyui.read_node_catalogue", return_value=catalogue),
+        patch("app.adapters.ai.comfyui.httpx.post") as post,
+        pytest.raises(ComfyUIError, match="unavailable"),
+    ):
+        ComfyUIProvider("http://localhost:8188", "sd15.safetensors", 2).generate(
+            replace(request(), lora_name="missing.safetensors")
+        )
+    post.assert_not_called()
 
 
 def test_comfyui_health_reports_offline(monkeypatch: pytest.MonkeyPatch) -> None:
