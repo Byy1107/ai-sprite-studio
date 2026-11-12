@@ -1,15 +1,18 @@
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.db.models import GenerationJobRecord, GenerationResultRecord
+from app.core.config import Settings, get_settings
+from app.db.models import GenerationJobRecord, GenerationResultRecord, ProjectRecord
 from app.db.session import get_session
 from app.domain.generation import GenerationRequest
-from app.services.generation import GenerationService, enqueue_generation
+from app.services.assets import AssetService
+from app.services.generation import GenerationService, configured_provider, enqueue_generation
 
 router = APIRouter(tags=["generation"])
 SessionDependency = Annotated[Session, Depends(get_session)]
@@ -92,7 +95,7 @@ def result_response(record: GenerationResultRecord) -> GenerationResultResponse:
     status_code=status.HTTP_201_CREATED,
 )
 def create_generation_job(payload: GenerationJobCreate, session: SessionDependency) -> object:
-    service = GenerationService(session)
+    service = GenerationService(session, configured_provider())
     try:
         record = service.create(GenerationRequest(**payload.model_dump()))
     except ValueError as error:
@@ -137,3 +140,29 @@ def list_generation_results(
         ]
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@router.post("/generation-results/{result_id}/accept", status_code=status.HTTP_201_CREATED)
+def accept_generation_result(
+    result_id: str,
+    session: SessionDependency,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict[str, object]:
+    result = session.get(GenerationResultRecord, result_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Generation result not found")
+    job = session.get(GenerationJobRecord, result.job_id)
+    if job is None or job.asset_id is None:
+        raise HTTPException(status_code=422, detail="The generation job is not linked to an asset")
+    project = session.get(ProjectRecord, job.project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        version = AssetService(session, settings.workspace_dir).create_generated_version(
+            job.asset_id, (Path(project.root_path) / result.file_path).read_bytes(), job.id
+        )
+    except (ValueError, OSError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    result.selected = 1
+    session.commit()
+    return {"asset_id": job.asset_id, "version_id": version.id, "source": version.source}

@@ -1,8 +1,10 @@
 import time
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -53,6 +55,12 @@ def wait_for_job(client: TestClient, job_id: str) -> dict[str, object]:
             return payload
         time.sleep(0.01)
     raise AssertionError("Fake generation did not finish")
+
+
+def png_bytes() -> bytes:
+    output = BytesIO()
+    Image.new("RGBA", (32, 32), (0, 0, 0, 0)).save(output, format="PNG")
+    return output.getvalue()
 
 
 def test_fake_job_succeeds_and_is_deterministic(client: TestClient) -> None:
@@ -132,3 +140,23 @@ def test_invalid_project_is_rejected(client: TestClient) -> None:
         "/api/v1/generation-jobs", json=generation_payload("missing-project")
     )
     assert response.status_code == 404
+
+
+def test_generated_candidate_can_be_accepted_as_asset_version(client: TestClient) -> None:
+    project = create_project(client)
+    asset = client.post(
+        f"/api/v1/projects/{project['id']}/assets/import",
+        data={"name": "Hero", "asset_type": "character", "style": "eight_bit"},
+        files={"file": ("hero.png", png_bytes(), "image/png")},
+    ).json()
+    payload = generation_payload(project["id"])
+    payload["asset_id"] = asset["id"]
+    created = client.post("/api/v1/generation-jobs", json=payload).json()
+    completed = wait_for_job(client, created["id"])
+    result = client.get(f"/api/v1/generation-jobs/{completed['id']}/results").json()[0]
+
+    accepted = client.post(f"/api/v1/generation-results/{result['id']}/accept")
+    assert accepted.status_code == 201
+    assert accepted.json()["source"] == "generated"
+    versions = client.get(f"/api/v1/assets/{asset['id']}/versions").json()
+    assert versions[0]["source"] == "generated"

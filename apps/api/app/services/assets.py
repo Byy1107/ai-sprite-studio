@@ -133,6 +133,42 @@ class AssetService:
         self.session.commit()
         return version
 
+    def create_generated_version(
+        self, asset_id: str, content: bytes, generation_id: str
+    ) -> AssetVersionRecord:
+        asset = self.get_asset(asset_id)
+        metadata = self.storage.inspect_png(content)
+        if (metadata.width, metadata.height) != (asset.width, asset.height):
+            raise ValueError("Generated candidates must match the asset dimensions.")
+        project = self.projects.get_project(asset.project_id)
+        next_number = self.session.scalar(
+            select(func.max(AssetVersionRecord.version_number)).where(
+                AssetVersionRecord.asset_id == asset_id
+            )
+        )
+        version_id = str(uuid4())
+        version_path, thumbnail_path = self.storage.write_version(
+            Path(project.root_path), asset_id, version_id, content
+        )
+        version = AssetVersionRecord(
+            id=version_id,
+            asset_id=asset_id,
+            version_number=int(next_number or 0) + 1,
+            parent_version_id=asset.active_version_id,
+            file_path=str(version_path.relative_to(project.root_path)),
+            checksum=metadata.checksum,
+            width=metadata.width,
+            height=metadata.height,
+            source="generated",
+            generation_id=generation_id,
+            change_summary="Accepted generated candidate",
+        )
+        self.session.add(version)
+        asset.active_version_id = version.id
+        asset.thumbnail_path = str(thumbnail_path.relative_to(project.root_path))
+        self.session.commit()
+        return version
+
     def restore_version(self, asset_id: str, version_id: str) -> AssetVersionRecord:
         asset = self.get_asset(asset_id)
         source = self.session.get(AssetVersionRecord, version_id)

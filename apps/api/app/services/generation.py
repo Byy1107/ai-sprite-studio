@@ -5,7 +5,8 @@ from pathlib import Path
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.adapters.ai import FakeAIProvider
+from app.adapters.ai import ComfyUIProvider, FakeAIProvider
+from app.core.config import get_settings
 from app.db.models import (
     GenerationJobRecord,
     GenerationResultRecord,
@@ -15,6 +16,17 @@ from app.db.models import (
 from app.domain.generation import AIProviderAdapter, GenerationRequest, GenerationStatus
 
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sprite-generation")
+
+
+def configured_provider() -> AIProviderAdapter:
+    settings = get_settings()
+    if settings.ai_provider == "comfyui":
+        return ComfyUIProvider(
+            settings.comfyui_http_url,
+            settings.comfyui_checkpoint,
+            settings.ai_timeout_seconds,
+        )
+    return FakeAIProvider()
 
 
 def enqueue_generation(job_id: str) -> None:
@@ -27,7 +39,7 @@ def _run_generation_job(job_id: str) -> None:
     factory = sessionmaker(bind=get_engine(), expire_on_commit=False)
     with factory() as session:
         try:
-            GenerationService(session).run(job_id)
+            GenerationService(session, configured_provider()).run(job_id)
         except Exception:
             return
 
@@ -118,6 +130,8 @@ class GenerationService:
     def cancel(self, job_id: str) -> GenerationJobRecord:
         job = self.get(job_id)
         if job.status not in {GenerationStatus.SUCCEEDED.value, GenerationStatus.FAILED.value}:
+            if job.status == GenerationStatus.RUNNING.value:
+                self.provider.cancel()
             job.status = GenerationStatus.CANCELED.value
             job.finished_at = utc_now()
             self.session.commit()
