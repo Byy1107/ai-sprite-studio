@@ -4,7 +4,7 @@ from random import Random
 
 from PIL import Image, ImageDraw
 
-from app.domain.generation import GenerationRequest, ProviderResult
+from app.domain.generation import GenerationRequest, ProviderResult, UnsupportedGenerationOption
 
 
 class FakeAIProvider:
@@ -13,7 +13,11 @@ class FakeAIProvider:
     def cancel(self) -> None:
         return None
 
-    def generate(self, request: GenerationRequest) -> ProviderResult:
+    def generate(
+        self, request: GenerationRequest, *, reference_image: bytes | None = None
+    ) -> ProviderResult:
+        if request.controlnet_name or request.lora_name:
+            raise UnsupportedGenerationOption("LoRA and ControlNet require the ComfyUI provider")
         digest = sha256(
             f"{request.prompt}:{request.negative_prompt}:{request.asset_type}:{request.style}:{request.seed}".encode()
         ).digest()

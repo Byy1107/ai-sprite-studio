@@ -8,11 +8,17 @@ from app.api.assets import router as assets_router
 from app.api.generation import router as generation_router
 from app.api.projects import router as projects_router
 from app.core.config import Settings, get_settings
+from app.services.capabilities import discover_capabilities
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(assets_router)
 router.include_router(generation_router)
 router.include_router(projects_router)
+
+
+@router.get("/system/ai/capabilities", tags=["system"])
+def ai_capabilities(settings: Annotated[Settings, Depends(get_settings)]) -> dict[str, object]:
+    return discover_capabilities(settings.ai_provider, settings.comfyui_http_url)
 
 
 class HealthResponse(BaseModel):

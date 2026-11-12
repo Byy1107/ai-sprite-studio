@@ -1,5 +1,7 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from hashlib import sha256
 from pathlib import Path
 
 from sqlalchemy import select, update
@@ -8,12 +10,20 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.adapters.ai import ComfyUIProvider, FakeAIProvider
 from app.core.config import get_settings
 from app.db.models import (
+    AssetRecord,
+    AssetVersionRecord,
     GenerationJobRecord,
     GenerationResultRecord,
     ProjectRecord,
     utc_now,
 )
-from app.domain.generation import AIProviderAdapter, GenerationRequest, GenerationStatus
+from app.domain.generation import (
+    AIProviderAdapter,
+    GenerationRequest,
+    GenerationStatus,
+    UnsupportedGenerationOption,
+)
+from app.services.asset_storage import MAX_IMPORT_BYTES, AssetStorage
 
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sprite-generation")
 
@@ -70,10 +80,44 @@ class GenerationService:
         project = self.session.get(ProjectRecord, request.project_id)
         if project is None or project.deleted_at is not None:
             raise ValueError("Project not found")
+        if request.lora_name is not None and self.provider.provider_id != "comfyui":
+            raise UnsupportedGenerationOption("LoRA requires the ComfyUI provider")
+        if request.controlnet_name is not None:
+            if self.provider.provider_id != "comfyui":
+                raise UnsupportedGenerationOption("ControlNet requires the ComfyUI provider")
+            if request.reference_asset_id is None:
+                raise UnsupportedGenerationOption("ControlNet requires a reference asset")
+            if request.controlnet_start >= request.controlnet_end:
+                raise UnsupportedGenerationOption("ControlNet start must be before end")
+        for asset_id in (request.asset_id, request.reference_asset_id):
+            if asset_id is not None:
+                asset = self.session.get(AssetRecord, asset_id)
+                if (
+                    asset is None
+                    or asset.deleted_at is not None
+                    or asset.project_id != request.project_id
+                ):
+                    raise ValueError("Asset not found in this project")
+        if request.reference_version_id is not None and request.reference_asset_id is None:
+            raise ValueError("Reference version requires a reference asset")
+        if request.reference_asset_id is not None:
+            reference = self.session.get(AssetRecord, request.reference_asset_id)
+            assert reference is not None
+            version_id = request.reference_version_id or reference.active_version_id
+            version = self.session.get(AssetVersionRecord, version_id) if version_id else None
+            if version is None or version.asset_id != reference.id:
+                raise ValueError("Reference version not found for this asset")
+            request = replace(request, reference_version_id=version.id)
         record = GenerationJobRecord(
             project_id=request.project_id,
             asset_id=request.asset_id,
             provider=self.provider.provider_id,
+            workflow_id=(
+                "sd15-text-to-sprite"
+                + ("-lora" if request.lora_name else "")
+                + ("-controlnet" if request.controlnet_name else "")
+                if self.provider.provider_id == "comfyui" else "fake-text-to-sprite"
+            ),
             status=GenerationStatus.QUEUED.value,
             request_json=json.dumps(request.__dict__, sort_keys=True),
         )
@@ -92,7 +136,21 @@ class GenerationService:
         self.session.commit()
         try:
             request = GenerationRequest(**json.loads(job.request_json))
-            provider_result = self.provider.generate(request)
+            if request.controlnet_name:
+                provider_result = self.provider.generate(
+                    request, reference_image=self._reference_content(request)
+                )
+            else:
+                provider_result = self.provider.generate(request)
+            metadata = dict(provider_result.metadata)
+            if request.reference_asset_id is not None:
+                applied = bool(metadata.get("controlnet_applied"))
+                metadata["reference_conditioning_applied"] = applied
+                if not applied:
+                    metadata["warnings"] = [
+                        "Reference stored only; this workflow does not apply "
+                        "reference conditioning."
+                    ]
             self.session.refresh(job)
             if job.status == GenerationStatus.CANCELED.value:
                 return job
@@ -110,7 +168,7 @@ class GenerationService:
                 file_path=relative_path.as_posix(),
                 thumbnail_path=relative_path.as_posix(),
                 seed=provider_result.seed,
-                metadata_json=json.dumps(provider_result.metadata, sort_keys=True),
+                metadata_json=json.dumps(metadata, sort_keys=True),
             )
             self.session.add(result)
             job.status = GenerationStatus.SUCCEEDED.value
@@ -126,6 +184,33 @@ class GenerationService:
             job.finished_at = utc_now()
             self.session.commit()
             raise
+
+    def _reference_content(self, request: GenerationRequest) -> bytes:
+        version = (
+            self.session.get(AssetVersionRecord, request.reference_version_id)
+            if request.reference_version_id else None
+        )
+        asset = (
+            self.session.get(AssetRecord, request.reference_asset_id)
+            if request.reference_asset_id else None
+        )
+        project = self.session.get(ProjectRecord, request.project_id)
+        if (
+            version is None or asset is None or project is None
+            or asset.deleted_at is not None or project.deleted_at is not None
+            or version.asset_id != asset.id or asset.project_id != project.id
+        ):
+            raise ValueError("Pinned reference is no longer available in this project")
+        root = Path(project.root_path).resolve()
+        path = (root / version.file_path).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError("Reference file is outside the project")
+        with path.open("rb") as reference_file:
+            content = reference_file.read(MAX_IMPORT_BYTES + 1)
+        AssetStorage().inspect_png(content)
+        if sha256(content).hexdigest() != version.checksum:
+            raise ValueError("Pinned reference file has changed")
+        return content
 
     def cancel(self, job_id: str) -> GenerationJobRecord:
         job = self.get(job_id)

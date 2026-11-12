@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.models import GenerationJobRecord, GenerationResultRecord, ProjectRecord
 from app.db.session import get_session
-from app.domain.generation import GenerationRequest
+from app.domain.generation import GenerationRequest, UnsupportedGenerationOption
 from app.domain.generation_presets import preset_by_id, serialized_presets
 from app.services.assets import AssetService
 from app.services.generation import GenerationService, configured_provider, enqueue_generation
@@ -30,6 +30,15 @@ class GenerationJobCreate(BaseModel):
     seed: int = Field(default=1, ge=0, le=2_147_483_647)
     preset_id: str | None = None
     negative_prompt: str = Field(default="blur, anti-aliasing", max_length=1000)
+    reference_asset_id: str | None = None
+    reference_version_id: str | None = None
+    reference_weight: float = Field(default=1.0, ge=0, le=2, allow_inf_nan=False)
+    lora_name: str | None = Field(default=None, min_length=1, max_length=255)
+    lora_weight: float = Field(default=1.0, ge=0, le=2, allow_inf_nan=False)
+    controlnet_name: str | None = Field(default=None, min_length=1, max_length=255)
+    controlnet_strength: float = Field(default=1.0, ge=0, le=2, allow_inf_nan=False)
+    controlnet_start: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
+    controlnet_end: float = Field(default=1.0, ge=0, le=1, allow_inf_nan=False)
 
 
 class GenerationJobResponse(BaseModel):
@@ -112,6 +121,8 @@ def create_generation_job(payload: GenerationJobCreate, session: SessionDependen
     service = GenerationService(session, configured_provider())
     try:
         record = service.create(GenerationRequest(**payload.model_dump()))
+    except UnsupportedGenerationOption as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     response = job_response(record)
