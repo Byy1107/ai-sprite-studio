@@ -80,6 +80,19 @@ export type GenerationResult = {
   selected: boolean;
 };
 
+export type GenerationPreset = {
+  id: string;
+  label: string;
+  asset_type: "character" | "item" | "environment" | "tileset";
+  description: string;
+  prompt: string;
+  negative_prompt: string;
+  style: "micro_pixel" | "eight_bit";
+  width: number;
+  height: number;
+  version: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
@@ -177,6 +190,10 @@ export function listGenerationJobs(projectId: string, signal?: AbortSignal): Pro
   });
 }
 
+export function listGenerationPresets(signal?: AbortSignal): Promise<GenerationPreset[]> {
+  return request<GenerationPreset[]>("/generation-presets", { signal });
+}
+
 export function createGenerationJob(payload: {
   project_id: string;
   asset_id?: string | null;
@@ -186,6 +203,8 @@ export function createGenerationJob(payload: {
   width: number;
   height: number;
   seed: number;
+  preset_id?: string | null;
+  negative_prompt?: string;
 }): Promise<GenerationJob> {
   return request<GenerationJob>("/generation-jobs", {
     method: "POST",

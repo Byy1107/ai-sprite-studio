@@ -11,6 +11,7 @@ from app.core.config import Settings, get_settings
 from app.db.models import GenerationJobRecord, GenerationResultRecord, ProjectRecord
 from app.db.session import get_session
 from app.domain.generation import GenerationRequest
+from app.domain.generation_presets import preset_by_id, serialized_presets
 from app.services.assets import AssetService
 from app.services.generation import GenerationService, configured_provider, enqueue_generation
 
@@ -27,6 +28,8 @@ class GenerationJobCreate(BaseModel):
     width: int = Field(default=32, ge=8, le=256)
     height: int = Field(default=32, ge=8, le=256)
     seed: int = Field(default=1, ge=0, le=2_147_483_647)
+    preset_id: str | None = None
+    negative_prompt: str = Field(default="blur, anti-aliasing", max_length=1000)
 
 
 class GenerationJobResponse(BaseModel):
@@ -89,12 +92,23 @@ def result_response(record: GenerationResultRecord) -> GenerationResultResponse:
     )
 
 
+@router.get("/generation-presets")
+def list_generation_presets() -> list[dict[str, object]]:
+    return serialized_presets()
+
+
 @router.post(
     "/generation-jobs",
     response_model=GenerationJobResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def create_generation_job(payload: GenerationJobCreate, session: SessionDependency) -> object:
+    if payload.preset_id:
+        preset = preset_by_id(payload.preset_id)
+        if preset is None:
+            raise HTTPException(status_code=422, detail="Generation preset not found")
+        if preset.asset_type != payload.asset_type:
+            raise HTTPException(status_code=422, detail="Preset does not match asset type")
     service = GenerationService(session, configured_provider())
     try:
         record = service.create(GenerationRequest(**payload.model_dump()))

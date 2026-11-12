@@ -6,6 +6,8 @@ All notable changes to AI Sprite Studio are documented here.
 
 ### Added
 
+- Sprint 6 specialized character, item, environment, and tileset generator presets.
+- Optional Akar Langit dark-fantasy preset and provider-neutral negative prompts.
 - Sprint 5 opt-in ComfyUI adapter and versioned SD1.5 baseline workflow.
 - ComfyUI health/error reporting, result retrieval, and generated candidate acceptance.
 - Sprint 4 provider-independent generation contracts and deterministic fake provider.

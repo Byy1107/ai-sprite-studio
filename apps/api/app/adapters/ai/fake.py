@@ -15,7 +15,7 @@ class FakeAIProvider:
 
     def generate(self, request: GenerationRequest) -> ProviderResult:
         digest = sha256(
-            f"{request.prompt}:{request.asset_type}:{request.style}:{request.seed}".encode()
+            f"{request.prompt}:{request.negative_prompt}:{request.asset_type}:{request.style}:{request.seed}".encode()
         ).digest()
         random = Random(int.from_bytes(digest[:8], "big"))
         image = Image.new("RGBA", (request.width, request.height), (0, 0, 0, 0))
@@ -37,5 +37,9 @@ class FakeAIProvider:
         return ProviderResult(
             image_bytes=output.getvalue(),
             seed=request.seed,
-            metadata={"provider": self.provider_id, "deterministic": True},
+            metadata={
+                "provider": self.provider_id,
+                "deterministic": True,
+                "preset_id": request.preset_id,
+            },
         )

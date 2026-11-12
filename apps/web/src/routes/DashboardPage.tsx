@@ -47,7 +47,7 @@ export function DashboardPage() {
             An offline-first home for crisp micro-pixel and 8-bit game assets.
           </p>
         </div>
-        <div className="build-tag">Sprint 5 · ComfyUI baseline</div>
+        <div className="build-tag">Sprint 6 · Specialized presets</div>
       </header>
 
       <section className="notice" aria-label="Sprint status">

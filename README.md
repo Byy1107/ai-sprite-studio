@@ -1,8 +1,8 @@
 # AI Sprite Studio
 
-AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. Sprint 5 adds an opt-in ComfyUI SD1.5 baseline while keeping the fake provider as the safe default.
+AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. Sprint 6 adds preset-driven specialized generators while keeping every AI provider optional and local.
 
-## Sprint 5 status
+## Sprint 6 status
 
 - React, TypeScript, Vite, and Tailwind frontend shell.
 - FastAPI backend with `/api/v1/health`.
@@ -17,6 +17,8 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - No AI models are downloaded. The fake provider remains the default and works without ComfyUI.
 - ComfyUI health, prompt submission, history polling, result retrieval, timeout handling, and candidate acceptance are available when explicitly configured.
 - The repository does not include or download checkpoints; users provide a licensed SD1.5-compatible checkpoint.
+- Character, item, environment, and tileset generator modes use versioned local presets.
+- The optional Akar Langit character preset provides a dark-fantasy bronze, indigo, and teal direction.
 
 ## Requirements
 
