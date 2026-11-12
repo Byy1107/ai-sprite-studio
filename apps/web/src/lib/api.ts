@@ -8,6 +8,12 @@ export type HealthResponse = {
   comfyui_configured: boolean;
 };
 
+export type AIHealthResponse = {
+  status: "ready" | "unavailable";
+  provider: "fake" | "comfyui";
+  message: string | null;
+};
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
 export type Project = {
@@ -65,6 +71,15 @@ export type GenerationJob = {
   finished_at: string | null;
 };
 
+export type GenerationResult = {
+  id: string;
+  job_id: string;
+  file_path: string;
+  seed: number;
+  metadata: Record<string, unknown>;
+  selected: boolean;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
@@ -85,6 +100,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   return request<HealthResponse>("/health", { signal });
+}
+
+export function getAIHealth(signal?: AbortSignal): Promise<AIHealthResponse> {
+  return request<AIHealthResponse>("/system/ai/health", { signal });
 }
 
 export function listProjects(signal?: AbortSignal): Promise<Project[]> {
@@ -160,6 +179,7 @@ export function listGenerationJobs(projectId: string, signal?: AbortSignal): Pro
 
 export function createGenerationJob(payload: {
   project_id: string;
+  asset_id?: string | null;
   prompt: string;
   asset_type: "character" | "item" | "environment" | "tileset";
   style: "micro_pixel" | "eight_bit";
@@ -175,5 +195,15 @@ export function createGenerationJob(payload: {
 
 export function cancelGenerationJob(jobId: string): Promise<GenerationJob> {
   return request<GenerationJob>(`/generation-jobs/${jobId}/cancel`, { method: "POST" });
+}
+
+export function listGenerationResults(jobId: string): Promise<GenerationResult[]> {
+  return request<GenerationResult[]>(`/generation-jobs/${jobId}/results`);
+}
+
+export function acceptGenerationResult(resultId: string): Promise<{ version_id: string }> {
+  return request<{ version_id: string }>(`/generation-results/${resultId}/accept`, {
+    method: "POST",
+  });
 }
 

@@ -1,8 +1,8 @@
 # AI Sprite Studio
 
-AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. The project is being delivered incrementally; Sprint 4 adds a provider-neutral generation queue and deterministic fake provider.
+AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. Sprint 5 adds an opt-in ComfyUI SD1.5 baseline while keeping the fake provider as the safe default.
 
-## Sprint 4 status
+## Sprint 5 status
 
 - React, TypeScript, Vite, and Tailwind frontend shell.
 - FastAPI backend with `/api/v1/health`.
@@ -14,7 +14,9 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - Canvas 2D pixel editor with pencil, eraser, picker, fill, line, rectangle, pan, zoom, grid, palette, and undo/redo.
 - Local editor drafts and publishing manual edits as immutable PNG versions.
 - Deterministic fake generation jobs support persisted status, cancellation, results, and restart recovery.
-- No AI models are downloaded. ComfyUI and real generation remain disconnected until Sprint 5.
+- No AI models are downloaded. The fake provider remains the default and works without ComfyUI.
+- ComfyUI health, prompt submission, history polling, result retrieval, timeout handling, and candidate acceptance are available when explicitly configured.
+- The repository does not include or download checkpoints; users provide a licensed SD1.5-compatible checkpoint.
 
 ## Requirements
 
@@ -23,7 +25,7 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - Python 3.11 64-bit. Python 3.12+ is not part of the supported Sprint 0 matrix.
 - Git.
 
-ComfyUI is optional during Sprint 1. Its default endpoint is recorded for future adapters, but the application must open without it.
+ComfyUI is optional. The application opens and its generation workflow remains usable with the fake provider when ComfyUI is absent.
 
 ## Quick start
 

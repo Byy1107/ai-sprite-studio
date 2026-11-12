@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.adapters.ai import ComfyUIProvider
 from app.api.assets import router as assets_router
 from app.api.generation import router as generation_router
 from app.api.projects import router as projects_router
@@ -34,4 +35,26 @@ def health(settings: Annotated[Settings, Depends(get_settings)]) -> HealthRespon
         workspace_configured=bool(settings.workspace_dir),
         database_configured=settings.database_url.startswith("sqlite"),
         comfyui_configured=bool(settings.comfyui_http_url),
+    )
+
+
+class AIHealthResponse(BaseModel):
+    status: str
+    provider: str
+    message: str | None = None
+
+
+@router.get("/system/ai/health", response_model=AIHealthResponse, tags=["system"])
+def ai_health(settings: Annotated[Settings, Depends(get_settings)]) -> AIHealthResponse:
+    if settings.ai_provider != "comfyui":
+        return AIHealthResponse(status="ready", provider="fake", message="Development provider")
+    result = ComfyUIProvider(
+        settings.comfyui_http_url,
+        settings.comfyui_checkpoint,
+        settings.ai_timeout_seconds,
+    ).health()
+    return AIHealthResponse(
+        status=str(result["status"]),
+        provider="comfyui",
+        message=str(result.get("message")) if result.get("message") else None,
     )

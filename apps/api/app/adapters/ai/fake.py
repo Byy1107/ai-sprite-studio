@@ -10,6 +10,9 @@ from app.domain.generation import GenerationRequest, ProviderResult
 class FakeAIProvider:
     provider_id = "fake"
 
+    def cancel(self) -> None:
+        return None
+
     def generate(self, request: GenerationRequest) -> ProviderResult:
         digest = sha256(
             f"{request.prompt}:{request.asset_type}:{request.style}:{request.seed}".encode()

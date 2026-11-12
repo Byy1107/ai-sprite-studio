@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     comfyui_ws_url: str = "ws://127.0.0.1:8188/ws"
     max_concurrent_ai_jobs: int = 1
     ai_timeout_seconds: int = 600
+    ai_provider: str = "fake"
+    comfyui_checkpoint: str = "sd15-checkpoint.safetensors"
 
     @property
     def database_path(self) -> Path | None:

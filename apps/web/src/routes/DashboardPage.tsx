@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { getHealth } from "../lib/api";
+import { getAIHealth, getHealth } from "../lib/api";
 import { ProjectBrowser } from "../features/projects/ProjectBrowser";
 
 type StatusCardProps = {
@@ -30,6 +30,11 @@ export function DashboardPage() {
   });
 
   const health = healthQuery.data;
+  const aiHealthQuery = useQuery({
+    queryKey: ["ai-health"],
+    queryFn: ({ signal }) => getAIHealth(signal),
+    refetchInterval: 30_000,
+  });
   const backendReady = health?.status === "ok";
 
   return (
@@ -42,13 +47,13 @@ export function DashboardPage() {
             An offline-first home for crisp micro-pixel and 8-bit game assets.
           </p>
         </div>
-        <div className="build-tag">Sprint 4 · Fake AI queue</div>
+        <div className="build-tag">Sprint 5 · ComfyUI baseline</div>
       </header>
 
       <section className="notice" aria-label="Sprint status">
-        <strong>Fake generation queue active.</strong>
+        <strong>ComfyUI adapter available.</strong>
         <span>
-          The local fake provider is test-ready. ComfyUI and real models remain disabled.
+          Fake remains the safe default. Enable ComfyUI explicitly after installing your own SD1.5 checkpoint.
         </span>
       </section>
 
@@ -74,8 +79,18 @@ export function DashboardPage() {
         />
         <StatusCard
           label="ComfyUI adapter"
-          detail="A separate adapter boundary is ready; ComfyUI remains disconnected until Sprint 5."
-          state="waiting"
+          detail={
+            aiHealthQuery.data?.provider === "comfyui"
+              ? aiHealthQuery.data.message ?? "ComfyUI is ready for local jobs."
+              : "Fake provider active. Set AI_SPRITE_AI_PROVIDER=comfyui to opt in."
+          }
+          state={
+            aiHealthQuery.data?.status === "ready"
+              ? "ready"
+              : aiHealthQuery.isError || aiHealthQuery.data?.status === "unavailable"
+                ? "unavailable"
+                : "waiting"
+          }
         />
       </section>
 

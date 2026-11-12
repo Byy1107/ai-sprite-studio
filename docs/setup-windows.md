@@ -55,7 +55,15 @@ Project metadata and files remain local. Configure `AI_SPRITE_DATABASE_URL` and 
 
 ## Optional ComfyUI setting
 
-The app records `AI_SPRITE_COMFYUI_HTTP_URL` and `AI_SPRITE_COMFYUI_WS_URL`, but does not connect, submit workflows, or download models. ComfyUI support starts behind a mockable adapter in later sprints.
+ComfyUI is not required. Keep `AI_SPRITE_AI_PROVIDER=fake` for deterministic local development without a GPU. To opt in, install ComfyUI separately, place a licensed SD1.5-compatible checkpoint in its checkpoint directory, and configure:
+
+```text
+AI_SPRITE_AI_PROVIDER=comfyui
+AI_SPRITE_COMFYUI_HTTP_URL=http://127.0.0.1:8188
+AI_SPRITE_COMFYUI_CHECKPOINT=your-checkpoint.safetensors
+```
+
+The app submits a versioned built-in workflow and never downloads model files. Start with a 32x32 or 64x64 single-image job. The dashboard reports whether the selected provider is ready.
 
 ## Troubleshooting
 
