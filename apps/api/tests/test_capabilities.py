@@ -20,7 +20,8 @@ def test_discovery_does_not_enable_unintegrated_workflows(payload: object) -> No
     with patch("app.services.capabilities.httpx.get", return_value=response):
         result = discover_capabilities("comfyui", "http://localhost:8188/")
     assert result["enabled_features"] == {
-        "reference": False, "lora": False, "controlnet": False, "inpaint": False,
+            "reference": False, "lora": False, "controlnet": False, "inpaint": False,
+            "ipadapter": False, "variation": False,
     }
     if payload == {"LoraLoader": {}, "Unknown": {}}:
         assert result["detected_nodes"] == ["LoraLoader"]
@@ -48,4 +49,5 @@ def test_lora_is_selectable_only_with_loader_inputs_and_models() -> None:
     assert result["lora_models"] == ["pixel.safetensors"]
     assert result["enabled_features"] == {
         "reference": False, "lora": True, "controlnet": False, "inpaint": False,
+        "ipadapter": False, "variation": False,
     }

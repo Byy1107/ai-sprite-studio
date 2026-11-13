@@ -16,8 +16,11 @@ class FakeAIProvider:
     def generate(
         self, request: GenerationRequest, *, reference_image: bytes | None = None
     ) -> ProviderResult:
-        if request.controlnet_name or request.lora_name:
-            raise UnsupportedGenerationOption("LoRA and ControlNet require the ComfyUI provider")
+        if (
+            request.controlnet_name or request.lora_name or request.ipadapter_model
+            or request.operation != "text_to_sprite"
+        ):
+            raise UnsupportedGenerationOption("Optional AI workflows require the ComfyUI provider")
         digest = sha256(
             f"{request.prompt}:{request.negative_prompt}:{request.asset_type}:{request.style}:{request.seed}".encode()
         ).digest()

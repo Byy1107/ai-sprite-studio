@@ -39,6 +39,13 @@ class GenerationJobCreate(BaseModel):
     controlnet_strength: float = Field(default=1.0, ge=0, le=2, allow_inf_nan=False)
     controlnet_start: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
     controlnet_end: float = Field(default=1.0, ge=0, le=1, allow_inf_nan=False)
+    ipadapter_model: str | None = Field(default=None, min_length=1, max_length=255)
+    clip_vision_model: str | None = Field(default=None, min_length=1, max_length=255)
+    operation: Literal["text_to_sprite", "variation", "inpaint"] = "text_to_sprite"
+    mask_x: int | None = Field(default=None, ge=0, le=255)
+    mask_y: int | None = Field(default=None, ge=0, le=255)
+    mask_width: int | None = Field(default=None, ge=1, le=256)
+    mask_height: int | None = Field(default=None, ge=1, le=256)
 
 
 class GenerationJobResponse(BaseModel):

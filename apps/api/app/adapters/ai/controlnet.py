@@ -7,12 +7,10 @@ import httpx
 from app.domain.generation import GenerationRequest
 
 
-def add_controlnet(
-    workflow: dict[str, Any], request: GenerationRequest, reference_image: bytes, base_url: str
-) -> None:
+def upload_input_image(content: bytes, base_url: str) -> str:
     response = httpx.post(
         f"{base_url}/upload/image",
-        files={"image": (f"{uuid4()}.png", reference_image, "image/png")},
+        files={"image": (f"{uuid4()}.png", content, "image/png")},
         data={"type": "input", "subfolder": "ai-sprite-studio", "overwrite": "false"},
         timeout=10,
     )
@@ -33,6 +31,12 @@ def add_controlnet(
         or "\\" in image_path or ":" in image_path
     ):
         raise ValueError("Invalid reference upload location")
+    return image_path
+
+
+def add_controlnet(
+    workflow: dict[str, Any], request: GenerationRequest, image_path: str
+) -> None:
     workflow["11"] = {
         "class_type": "LoadImage", "inputs": {"image": image_path},
     }
