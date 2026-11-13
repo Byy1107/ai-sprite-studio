@@ -78,6 +78,18 @@ export type AnimationFrame = {
   event_name: string | null;
 };
 
+export type ExportRecord = {
+  id: string;
+  project_id: string;
+  asset_id: string;
+  format: "png" | "spritesheet" | "gif";
+  config: Record<string, unknown>;
+  output_path: string;
+  checksum: string;
+  status: string;
+  created_at: string;
+};
+
 export type GenerationJob = {
   id: string;
   project_id: string;
@@ -252,6 +264,27 @@ export function reorderAnimationFrames(id: string, frameIds: string[]): Promise<
   return request(`/animations/${id}/frames/reorder`, {
     method: "POST", body: JSON.stringify({ frame_ids: frameIds }),
   });
+}
+
+export function listExports(projectId: string, signal?: AbortSignal): Promise<ExportRecord[]> {
+  return request(`/projects/${projectId}/exports`, { signal });
+}
+
+export function createExport(payload: {
+  asset_id: string;
+  format: ExportRecord["format"];
+  version_id?: string;
+  animation_id?: string;
+  scale: 1 | 2 | 4 | 8;
+  columns?: number;
+  spacing?: number;
+  padding?: number;
+}): Promise<ExportRecord> {
+  return request("/exports", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function exportFileUrl(exportId: string, kind: "png" | "json" | "gif"): string {
+  return `${apiBaseUrl}/exports/${exportId}/files/${kind}`;
 }
 
 export function publishManualVersion(

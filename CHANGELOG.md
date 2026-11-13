@@ -4,6 +4,7 @@ All notable changes to AI Sprite Studio are documented here.
 
 ## Unreleased
 
+- Sprint 9 in progress: immutable PNG, character-clip spritesheet PNG + schema-v1 JSON, GIF preview, download API, export history, and a basic export panel.
 - Sprint 8 timeline updates the direction field when switching clips; a UI regression test covers the transition.
 
 ### Added
