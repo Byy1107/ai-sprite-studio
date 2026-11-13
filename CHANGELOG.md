@@ -4,7 +4,12 @@ All notable changes to AI Sprite Studio are documented here.
 
 ## Unreleased
 
+- Sprint 8 timeline updates the direction field when switching clips; a UI regression test covers the transition.
+
 ### Added
+
+- Sprint 8 character animation clips, persisted frame order and timing, and version-pinned frame metadata.
+- Timeline preview with loop/once/ping-pong playback, onion skin, frame editing, and moveset grouping.
 
 - Sprint 6 specialized character, item, environment, and tileset generator presets.
 - Optional Akar Langit dark-fantasy preset and provider-neutral negative prompts.

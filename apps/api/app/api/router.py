@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.adapters.ai import ComfyUIProvider
+from app.api.animations import router as animations_router
 from app.api.assets import router as assets_router
 from app.api.generation import router as generation_router
 from app.api.projects import router as projects_router
@@ -11,6 +12,7 @@ from app.core.config import Settings, get_settings
 from app.services.capabilities import discover_capabilities
 
 router = APIRouter(prefix="/api/v1")
+router.include_router(animations_router)
 router.include_router(assets_router)
 router.include_router(generation_router)
 router.include_router(projects_router)

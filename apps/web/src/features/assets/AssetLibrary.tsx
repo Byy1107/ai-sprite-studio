@@ -9,6 +9,7 @@ import {
   type Asset,
 } from "../../lib/api";
 import { PixelEditor } from "../editor/PixelEditor";
+import { AnimationTimeline } from "../animation/AnimationTimeline";
 
 function VersionHistory({ asset }: { asset: Asset }) {
   const queryClient = useQueryClient();
@@ -103,6 +104,7 @@ export function AssetLibrary({ projectId }: { projectId: string }) {
       </div>
       {selected ? <PixelEditor asset={selected} /> : null}
       {selected ? <VersionHistory asset={selected} /> : null}
+      {selected?.asset_type === "character" ? <AnimationTimeline key={selected.id} asset={selected} /> : null}
     </section>
   );
 }

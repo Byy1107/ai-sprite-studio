@@ -1,8 +1,8 @@
 # AI Sprite Studio
 
-AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. Sprint 6 adds preset-driven specialized generators while keeping every AI provider optional and local.
+AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. Sprint 8 adds character animation clips and a timeline while keeping every AI provider optional and local.
 
-## Sprint 6 status
+## Sprint 8 status
 
 - React, TypeScript, Vite, and Tailwind frontend shell.
 - FastAPI backend with `/api/v1/health`.
@@ -19,6 +19,7 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - The repository does not include or download checkpoints; users provide a licensed SD1.5-compatible checkpoint.
 - Character, item, environment, and tileset generator modes use versioned local presets.
 - The optional Akar Langit character preset provides a dark-fantasy bronze, indigo, and teal direction.
+- Character movesets support version-pinned frames, timing, loop modes, onion skin, pivot, offset, event markers, and reorder.
 
 ## Requirements
 
