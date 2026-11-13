@@ -54,6 +54,30 @@ export type AssetVersion = {
   created_at: string;
 };
 
+export type AnimationClip = {
+  id: string;
+  asset_id: string;
+  name: string;
+  direction: string;
+  fps: number;
+  loop_mode: "loop" | "once" | "ping_pong";
+  canvas_width: number;
+  canvas_height: number;
+};
+
+export type AnimationFrame = {
+  id: string;
+  animation_id: string;
+  asset_version_id: string;
+  frame_index: number;
+  duration_ms: number;
+  offset_x: number;
+  offset_y: number;
+  pivot_x: number;
+  pivot_y: number;
+  event_name: string | null;
+};
+
 export type GenerationJob = {
   id: string;
   project_id: string;
@@ -182,6 +206,52 @@ export function restoreAssetVersion(assetId: string, versionId: string): Promise
 
 export function assetVersionContentUrl(versionId: string): string {
   return `${apiBaseUrl}/asset-versions/${versionId}/content`;
+}
+
+export function listAnimations(assetId: string, signal?: AbortSignal): Promise<AnimationClip[]> {
+  return request(`/assets/${assetId}/animations`, { signal });
+}
+
+export function createAnimation(assetId: string, payload: {
+  name: string; direction: string; fps: number; loop_mode: AnimationClip["loop_mode"];
+}): Promise<AnimationClip> {
+  return request(`/assets/${assetId}/animations`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function updateAnimation(id: string, payload: Partial<Pick<AnimationClip, "name" | "direction" | "fps" | "loop_mode">>): Promise<AnimationClip> {
+  return request(`/animations/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function deleteAnimation(id: string): Promise<void> {
+  return request(`/animations/${id}`, { method: "DELETE" });
+}
+
+export function listAnimationFrames(id: string, signal?: AbortSignal): Promise<AnimationFrame[]> {
+  return request(`/animations/${id}/frames`, { signal });
+}
+
+export function addAnimationFrame(id: string, assetVersionId: string): Promise<AnimationFrame> {
+  return request(`/animations/${id}/frames`, {
+    method: "POST", body: JSON.stringify({ asset_version_id: assetVersionId }),
+  });
+}
+
+export function updateAnimationFrame(id: string, payload: Partial<Pick<AnimationFrame, "duration_ms" | "offset_x" | "offset_y" | "pivot_x" | "pivot_y" | "event_name">>): Promise<AnimationFrame> {
+  return request(`/animation-frames/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function duplicateAnimationFrame(id: string): Promise<AnimationFrame> {
+  return request(`/animation-frames/${id}/duplicate`, { method: "POST" });
+}
+
+export function deleteAnimationFrame(id: string): Promise<void> {
+  return request(`/animation-frames/${id}`, { method: "DELETE" });
+}
+
+export function reorderAnimationFrames(id: string, frameIds: string[]): Promise<AnimationFrame[]> {
+  return request(`/animations/${id}/frames/reorder`, {
+    method: "POST", body: JSON.stringify({ frame_ids: frameIds }),
+  });
 }
 
 export function publishManualVersion(

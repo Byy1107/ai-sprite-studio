@@ -609,6 +609,94 @@ h1 {
   margin: 10px 0 0;
 }
 
+.animation-timeline {
+  margin-top: 18px;
+  border: 1px solid rgba(167, 174, 196, 0.15);
+  border-radius: 12px;
+  padding: 16px;
+  background: rgba(11, 13, 23, 0.62);
+}
+
+.animation-row,
+.animation-frames,
+.animation-frame-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.animation-row input,
+.animation-row select,
+.animation-frame-fields input {
+  max-width: 160px;
+  border: 1px solid rgba(167, 174, 196, 0.2);
+  border-radius: 8px;
+  padding: 8px;
+  color: #f0ede5;
+  background: #111525;
+}
+
+.animation-row label,
+.animation-frame-fields label {
+  display: grid;
+  gap: 4px;
+  color: #a7aec4;
+  font-size: 0.75rem;
+}
+
+.animation-preview {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid #6f7898;
+  background: repeating-conic-gradient(#303749 0% 25%, #1c2131 0% 50%) 50% / 16px 16px;
+}
+
+.animation-preview img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+.animation-preview .animation-preview__onion {
+  opacity: 0.2;
+}
+
+.animation-preview__pivot {
+  position: absolute;
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #f0ede5;
+  background: #b28a45;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.animation-frames button {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 80px;
+}
+
+.animation-frames img {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+.animation-frames [aria-current="true"],
+.animation-row [aria-pressed="true"] {
+  border-color: #67b7b2;
+}
+
 @media (max-width: 720px) {
   .app-shell {
     padding-top: 32px;

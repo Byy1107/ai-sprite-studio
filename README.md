@@ -1,8 +1,8 @@
 # AI Sprite Studio
 
-AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. Sprint 7 adds optional reference-guided generation and AI-assisted edits while keeping every AI provider optional and local.
+AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. Sprint 7 adds optional reference-guided generation and AI-assisted edits; Sprint 8 adds character animation clips and a timeline. AI providers remain optional and local.
 
-## Sprint 7 status
+## Current status
 
 - React, TypeScript, Vite, and Tailwind frontend shell.
 - FastAPI backend with `/api/v1/health`.
@@ -22,6 +22,7 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - Sprint 7 pins reference versions and discovers optional LoRA, ControlNet and IP-Adapter models through local ComfyUI.
 - The pixel editor can queue whole-image variations or rectangular inpainting as candidates; inpaint results preserve pixels outside the selection.
 - Optional workflow wiring and safety checks have automated coverage. On a GTX 1070 Ti, baseline generation and AI edits now render at up to 512 pixels before nearest-neighbor resizing; a sword silhouette remained recognizable through variation and masked inpainting. One locally converted LoRA was verified to affect pixels, but did not improve quality. Background cleanup and pixel-art quality remain open; ControlNet and IP-Adapter still require compatible local models and GPU validation.
+- Character movesets support version-pinned frames, timing, loop modes, onion skin, pivot, offset, event markers, and reorder.
 
 ## Requirements
 

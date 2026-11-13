@@ -108,3 +108,39 @@ class GenerationResultRecord(Base):
     metadata_json: Mapped[str] = mapped_column(Text)
     selected: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class AnimationRecord(Base):
+    __tablename__ = "animations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    asset_id: Mapped[str] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    direction: Mapped[str] = mapped_column(String(32), default="down")
+    fps: Mapped[int] = mapped_column(Integer, default=8)
+    loop_mode: Mapped[str] = mapped_column(String(16), default="loop")
+    canvas_width: Mapped[int] = mapped_column(Integer)
+    canvas_height: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class AnimationFrameRecord(Base):
+    __tablename__ = "animation_frames"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    animation_id: Mapped[str] = mapped_column(
+        ForeignKey("animations.id", ondelete="CASCADE"), index=True
+    )
+    asset_version_id: Mapped[str] = mapped_column(
+        ForeignKey("asset_versions.id", ondelete="RESTRICT")
+    )
+    frame_index: Mapped[int] = mapped_column(Integer)
+    duration_ms: Mapped[int] = mapped_column(Integer)
+    offset_x: Mapped[int] = mapped_column(Integer, default=0)
+    offset_y: Mapped[int] = mapped_column(Integer, default=0)
+    pivot_x: Mapped[int] = mapped_column(Integer, default=0)
+    pivot_y: Mapped[int] = mapped_column(Integer, default=0)
+    event_name: Mapped[str | None] = mapped_column(String(80), nullable=True)

@@ -4,8 +4,12 @@ All notable changes to AI Sprite Studio are documented here.
 
 ## Unreleased
 
+- Sprint 8 timeline updates the direction field when switching clips; a UI regression test covers the transition.
+
 ### Added
 
+- Sprint 8 character animation clips, persisted frame order and timing, and version-pinned frame metadata.
+- Timeline preview with loop/once/ping-pong playback, onion skin, frame editing, and moveset grouping.
 - SD1.5 generation and AI edits infer at up to 512 pixels on the longest side, then resize to the requested sprite canvas; edit sources and rectangular masks are scaled together, and workflow version 2 records both sizes.
 - Sprint 7 immutable reference pinning, local capability discovery and optional LoRA, prepared-image ControlNet and IP-Adapter workflows.
 - Pixel-editor variation and selected-region inpainting jobs with candidate review and unchanged active versions until acceptance.
