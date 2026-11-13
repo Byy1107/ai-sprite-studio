@@ -35,7 +35,9 @@ it("exports a pinned PNG and a clip sheet without replacing prior records", asyn
       submitted.push(payload);
       const record: ExportRecord = {
         id: `export-${records.length + 1}`, project_id: "project-1", asset_id: "asset-1",
-        format: payload.format as ExportRecord["format"], config: {}, output_path: "",
+        format: payload.format as ExportRecord["format"],
+        preset_id: (payload.preset_id as ExportRecord["preset_id"]) ?? null,
+        config: {}, output_path: "",
         checksum: "", status: "succeeded", created_at: "2026-11-13T00:00:00Z",
       };
       records.push(record);
@@ -55,10 +57,12 @@ it("exports a pinned PNG and a clip sheet without replacing prior records", asyn
     "href", "/api/v1/exports/export-1/files/png",
   );
   await user.selectOptions(screen.getByLabelText("Export clip"), "clip-1");
+  await user.selectOptions(screen.getByLabelText("Export target"), "godot4");
   await user.click(screen.getByRole("button", { name: "Export sheet + JSON" }));
   await waitFor(() => expect(submitted).toHaveLength(2));
   expect(submitted[1]).toMatchObject({
     format: "spritesheet", animation_id: "clip-1", columns: 8, spacing: 0, padding: 0,
+    preset_id: "godot4",
   });
   expect(await screen.findByRole("link", { name: "JSON" })).toHaveAttribute(
     "href", "/api/v1/exports/export-2/files/json",

@@ -3,6 +3,7 @@ import json
 import os
 from io import BytesIO
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 from PIL import Image, UnidentifiedImageError
@@ -78,7 +79,7 @@ class ExportService:
 
     def create_spritesheet(
         self, asset_id: str, animation_id: str, scale: int,
-        columns: int, spacing: int, padding: int,
+        columns: int, spacing: int, padding: int, preset_id: str | None = None,
     ) -> ExportRecord:
         asset = self.assets.get_asset(asset_id)
         animation = self.animations.get_animation(animation_id)
@@ -109,12 +110,13 @@ class ExportService:
                 "offset": {"x": frame.offset_x, "y": frame.offset_y},
                 "events": [frame.event_name] if frame.event_name else [],
             })
+        meta: dict[str, object] = {
+            "app": "AI Sprite Studio", "schema_version": 1, "image": "sprite.png",
+            "size": {"w": layout.width, "h": layout.height}, "scale": scale,
+            "spacing": spacing, "padding": padding,
+        }
         metadata = {
-            "meta": {
-                "app": "AI Sprite Studio", "schema_version": 1, "image": "sprite.png",
-                "size": {"w": layout.width, "h": layout.height}, "scale": scale,
-                "spacing": spacing, "padding": padding,
-            },
+            "meta": meta,
             "animations": {
                 f"{animation.name}_{animation.direction}": {
                     "name": animation.name, "direction": animation.direction,
@@ -123,10 +125,18 @@ class ExportService:
                 }
             },
         }
-        return self._save(asset.project_id, asset_id, "spritesheet", {
+        if preset_id == "godot4":
+            meta["preset_id"] = "godot4"
+        config: dict[str, object] = {
             "schema_version": 1, "animation_id": animation_id, "scale": scale,
             "columns": columns, "spacing": spacing, "padding": padding,
-        }, self._png_bytes(sheet), metadata)
+        }
+        if preset_id is not None:
+            config["preset_id"] = preset_id
+        return self._save(
+            asset.project_id, asset_id, "spritesheet", config,
+            self._png_bytes(sheet), metadata, preset_id=preset_id,
+        )
 
     def create_gif(self, asset_id: str, animation_id: str, scale: int) -> ExportRecord:
         asset = self.assets.get_asset(asset_id)
@@ -183,7 +193,7 @@ class ExportService:
         try:
             with Image.open(BytesIO(content)) as image:
                 image.load()
-                return image.convert("RGBA")
+                return cast(Image.Image, image.convert("RGBA"))
         except (OSError, UnidentifiedImageError) as error:
             raise ValueError("A pinned source PNG is unreadable.") from error
 
@@ -198,6 +208,7 @@ class ExportService:
         config: dict[str, object], content: bytes,
         metadata: dict[str, object] | None = None,
         extension: str = "png",
+        preset_id: str | None = None,
     ) -> ExportRecord:
         project = self.assets.projects.get_project(project_id)
         export_id = str(uuid4())
@@ -210,7 +221,7 @@ class ExportService:
             self._write_new(output_dir / "sprite.json", json_content)
         record = ExportRecord(
             id=export_id, project_id=project_id, asset_id=asset_id,
-            format=format_name, preset_id=None,
+            format=format_name, preset_id=preset_id,
             config_json=json.dumps(config, sort_keys=True),
             output_path=str(output_path.relative_to(project.root_path)),
             checksum=hashlib.sha256(content).hexdigest(), status="succeeded",

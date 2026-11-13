@@ -40,10 +40,12 @@ export function ExportPanel({ asset }: { asset: Asset }) {
     event.preventDefault();
     if (!animationId) return;
     const data = new FormData(event.currentTarget);
+    const preset = data.get("preset_id");
     mutation.mutate({
       asset_id: asset.id, format: "spritesheet", animation_id: animationId, scale,
       columns: Number(data.get("columns")), spacing: Number(data.get("spacing")),
       padding: Number(data.get("padding")),
+      ...(preset === "godot4" ? { preset_id: "godot4" as const } : {}),
     });
   }
 
@@ -75,6 +77,9 @@ export function ExportPanel({ asset }: { asset: Asset }) {
         <label>Columns <input aria-label="Sheet columns" name="columns" type="number" min="1" max="64" defaultValue="8" required /></label>
         <label>Spacing <input aria-label="Sheet spacing" name="spacing" type="number" min="0" max="64" defaultValue="0" required /></label>
         <label>Padding <input aria-label="Sheet padding" name="padding" type="number" min="0" max="64" defaultValue="0" required /></label>
+        <label>Target <select aria-label="Export target" name="preset_id">
+          <option value="">Generic</option><option value="godot4">Godot 4</option>
+        </select></label>
         <button type="submit" disabled={mutation.isPending || !animationId}>Export sheet + JSON</button>
         <button type="button" disabled={mutation.isPending || !animationId}
           onClick={() => mutation.mutate({ asset_id: asset.id, format: "gif", animation_id: animationId, scale })}>
@@ -84,7 +89,7 @@ export function ExportPanel({ asset }: { asset: Asset }) {
       {mutation.isError && <p className="form-error" role="alert">{mutation.error.message}</p>}
       {exportsQuery.isError && <p className="form-error" role="alert">Could not load exports.</p>}
       {assetExports.map((record) => <div className="version-row" key={record.id}>
-        <span>{record.format} · {new Date(record.created_at).toLocaleString()}</span>
+        <span>{record.format}{record.preset_id === "godot4" ? " · Godot 4" : ""} · {new Date(record.created_at).toLocaleString()}</span>
         {record.format === "gif"
           ? <a href={exportFileUrl(record.id, "gif")} download>GIF</a>
           : <a href={exportFileUrl(record.id, "png")} download>PNG</a>}

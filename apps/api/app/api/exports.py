@@ -27,6 +27,7 @@ class ExportCreate(BaseModel):
     columns: int = Field(default=8, ge=1, le=64)
     spacing: int = Field(default=0, ge=0, le=64)
     padding: int = Field(default=0, ge=0, le=64)
+    preset_id: Literal["godot4"] | None = None
 
 
 class ExportResponse(BaseModel):
@@ -34,6 +35,7 @@ class ExportResponse(BaseModel):
     project_id: str
     asset_id: str
     format: str
+    preset_id: str | None
     config: dict[str, object]
     output_path: str
     checksum: str
@@ -55,6 +57,7 @@ def export_response(record: ExportRecord) -> ExportResponse:
     return ExportResponse(
         id=record.id, project_id=record.project_id, asset_id=record.asset_id,
         format=record.format, config=json.loads(record.config_json),
+        preset_id=record.preset_id,
         output_path=record.output_path, checksum=record.checksum,
         status=record.status, created_at=record.created_at,
     )
@@ -82,19 +85,20 @@ def list_exports(project_id: str, service: ExportDependency) -> list[ExportRespo
 def create_export(payload: ExportCreate, service: ExportDependency) -> ExportResponse:
     try:
         if payload.format == "png":
-            if payload.animation_id is not None:
-                raise ValueError("PNG export does not use an animation.")
+            if payload.animation_id is not None or payload.preset_id is not None:
+                raise ValueError("PNG export does not use an animation or preset.")
             record = service.create_png(payload.asset_id, payload.version_id, payload.scale)
         elif payload.format == "spritesheet":
             if payload.animation_id is None or payload.version_id is not None:
                 raise ValueError("Spritesheet export requires an animation, not a version.")
             record = service.create_spritesheet(
                 payload.asset_id, payload.animation_id, payload.scale,
-                payload.columns, payload.spacing, payload.padding,
+                payload.columns, payload.spacing, payload.padding, payload.preset_id,
             )
         else:
-            if payload.animation_id is None or payload.version_id is not None:
-                raise ValueError("GIF export requires an animation, not a version.")
+            if (payload.animation_id is None or payload.version_id is not None
+                    or payload.preset_id is not None):
+                raise ValueError("GIF export requires an animation, not a version or preset.")
             record = service.create_gif(payload.asset_id, payload.animation_id, payload.scale)
         return export_response(record)
     except ValueError as error:

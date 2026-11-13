@@ -20,6 +20,8 @@ outputs/
 work/
 *.db
 *.sqlite3
+.godot/
+examples/godot4/exports/
 
 .idea/
 .vscode/

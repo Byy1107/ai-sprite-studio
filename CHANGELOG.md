@@ -4,7 +4,9 @@ All notable changes to AI Sprite Studio are documented here.
 
 ## Unreleased
 
-- Sprint 9 in progress: immutable PNG, character-clip spritesheet PNG + schema-v1 JSON, GIF preview, download API, export history, and a basic export panel.
+- Add a selectable Godot 4 spritesheet preset and example importer for Sprint 9.
+
+- Sprint 9 complete: immutable PNG, character-clip spritesheet PNG + schema-v1 JSON, GIF preview, download API, export history, and a basic export panel; verified on a fresh Python 3.11 environment.
 - Sprint 8 timeline updates the direction field when switching clips; a UI regression test covers the transition.
 
 ### Added

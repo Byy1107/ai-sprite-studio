@@ -7,6 +7,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 from PIL import Image
 from sqlalchemy import create_engine, inspect
 
@@ -33,6 +34,13 @@ def png(color: tuple[int, int, int, int]) -> bytes:
     image.putpixel((0, 0), (0, 0, 0, 0))
     image.save(output, "PNG")
     return output.getvalue()
+
+
+def validate_sheet_metadata(metadata: dict[str, object]) -> None:
+    schema_path = Path(__file__).resolve().parents[3] / "docs/schemas/spritesheet-v1.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    Draft202012Validator(schema).validate(metadata)
 
 
 def make_asset(client: TestClient, name: str) -> tuple[dict[str, object], dict[str, object]]:
@@ -110,6 +118,7 @@ def test_spritesheet_rects_metadata_and_rejections(client: TestClient) -> None:
         assert image.getpixel((9, 2)) == (0, 0, 0, 0)
         assert image.getpixel((14, 3)) == (255, 0, 0, 255)
     metadata = json.loads(metadata_bytes)
+    validate_sheet_metadata(metadata)
     assert metadata["meta"]["schema_version"] == 1
     frames = metadata["animations"]["walk_down"]["frames"]
     assert [frame["rect"] for frame in frames] == [
@@ -135,6 +144,40 @@ def test_spritesheet_rects_metadata_and_rejections(client: TestClient) -> None:
     get_engine().dispose()
     get_engine.cache_clear()
     assert len(client.get(f"/api/v1/projects/{project['id']}/exports").json()) == 2
+
+
+def test_godot4_preset_keeps_sheet_contract_and_records_target(client: TestClient) -> None:
+    _, asset = make_asset(client, "Godot Hero")
+    clip = client.post(f"/api/v1/assets/{asset['id']}/animations", json={
+        "name": "idle", "direction": "down", "fps": 8, "loop_mode": "once",
+    }).json()
+    frame = client.post(f"/api/v1/animations/{clip['id']}/frames", json={
+        "asset_version_id": asset["active_version_id"], "duration_ms": 250,
+    })
+    assert frame.status_code == 201
+    payload = {
+        "asset_id": asset["id"], "format": "spritesheet", "animation_id": clip["id"],
+        "scale": 2, "preset_id": "godot4",
+    }
+    response = client.post("/api/v1/exports", json=payload)
+    assert response.status_code == 201
+    record = response.json()
+    assert record["preset_id"] == "godot4"
+    assert record["config"]["preset_id"] == "godot4"
+    metadata = client.get(f"/api/v1/exports/{record['id']}/files/json").json()
+    validate_sheet_metadata(metadata)
+    assert metadata["meta"]["preset_id"] == "godot4"
+    assert metadata["meta"]["image"] == "sprite.png"
+    assert metadata["animations"]["idle_down"]["frames"][0]["duration_ms"] == 250
+    png_content = client.get(f"/api/v1/exports/{record['id']}/files/png").content
+    with Image.open(BytesIO(png_content)) as image:
+        assert image.size == (8, 8)
+    assert client.post("/api/v1/exports", json={
+        **payload, "preset_id": "unknown",
+    }).status_code == 422
+    assert client.post("/api/v1/exports", json={
+        "asset_id": asset["id"], "format": "png", "preset_id": "godot4",
+    }).status_code == 422
 
 
 def test_gif_preview_uses_timeline_durations_and_loop(client: TestClient) -> None:

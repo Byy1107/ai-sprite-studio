@@ -83,6 +83,7 @@ export type ExportRecord = {
   project_id: string;
   asset_id: string;
   format: "png" | "spritesheet" | "gif";
+  preset_id: "godot4" | null;
   config: Record<string, unknown>;
   output_path: string;
   checksum: string;
@@ -279,6 +280,7 @@ export function createExport(payload: {
   columns?: number;
   spacing?: number;
   padding?: number;
+  preset_id?: "godot4";
 }): Promise<ExportRecord> {
   return request("/exports", { method: "POST", body: JSON.stringify(payload) });
 }
