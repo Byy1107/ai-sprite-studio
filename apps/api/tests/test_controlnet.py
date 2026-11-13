@@ -114,6 +114,7 @@ def test_controlnet_discovery_lists_local_models() -> None:
     assert result["controlnet_models"] == ["edge.safetensors"]
     assert result["enabled_features"] == {
         "reference": False, "lora": True, "controlnet": True, "inpaint": False,
+        "ipadapter": False, "variation": False,
     }
 
 

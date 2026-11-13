@@ -149,6 +149,8 @@ export function getAICapabilities(signal?: AbortSignal): Promise<{
   detected_nodes: string[];
   lora_models: string[];
   controlnet_models: string[];
+  ipadapter_models: string[];
+  clip_vision_models: string[];
   enabled_features: Record<string, boolean>;
   message: string;
 }> {
@@ -296,6 +298,13 @@ export function createGenerationJob(payload: {
   controlnet_strength?: number;
   controlnet_start?: number;
   controlnet_end?: number;
+  ipadapter_model?: string | null;
+  clip_vision_model?: string | null;
+  operation?: "text_to_sprite" | "variation" | "inpaint";
+  mask_x?: number | null;
+  mask_y?: number | null;
+  mask_width?: number | null;
+  mask_height?: number | null;
 }): Promise<GenerationJob> {
   return request<GenerationJob>("/generation-jobs", {
     method: "POST",

@@ -26,6 +26,8 @@ Compose and preview character sprite animations from immutable asset versions. A
 
 - Backend: 68 tests passed; Ruff and mypy passed (33 source files).
 - Frontend: 17 tests passed; ESLint, TypeScript, and production Vite build passed.
+- Combined Sprint 7+8 regression after local merge: 88 backend tests and 19
+  frontend tests passed; Ruff, Mypy, ESLint, TypeScript and Vite build passed.
 - Backend API integration covers version ownership, persistence after reopening the engine, reorder validation, duplicate, delete, and metadata.
 - Migration test covers upgrade and downgrade on an empty SQLite database.
 - Frontend tests cover timing boundaries, clip/frame interaction, reorder, and onion skin on/off.
@@ -48,8 +50,6 @@ tests or need a separate manual pass; they were not all clicked in this smoke te
   dependency junction omitted a Babel `lru-cache` link (`_lruCache is not a
   constructor`). The production build and preview worked. A clean dependency
   install should be checked before claiming fresh-setup validation.
-- Sprint 7 was completed locally in a separate uncommitted worktree. This
-  Sprint 8 branch still starts at the older merged baseline; integrate the
-  Sprint 7 work safely before publishing Sprint 8.
-- GitHub remote status could not be rechecked during this session because the network connection was unavailable. Work is local and uncommitted on `codex/sprint-08-animation-timeline`.
+- The separately developed Sprint 7 work is merged into this local branch
+  before publication. Run the combined regression checks before release.
 - Sprint 9 has not started.

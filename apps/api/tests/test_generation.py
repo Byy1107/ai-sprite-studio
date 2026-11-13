@@ -276,6 +276,7 @@ def test_lora_settings_are_persisted_without_changing_assets(
     assert stored["request"]["lora_name"] == "pixel.safetensors"
     assert stored["request"]["lora_weight"] == 0.65
     assert stored["workflow_id"] == "sd15-text-to-sprite-lora"
+    assert stored["workflow_version"] == "2"
     assert client.get(f"/api/v1/projects/{project['id']}/assets").json() == []
 
 
@@ -399,3 +400,147 @@ def test_invalid_controlnet_settings(client: TestClient, field: str, value: obje
     payload = generation_payload(create_project(client)["id"])
     payload[field] = value
     assert client.post("/api/v1/generation-jobs", json=payload).status_code == 422
+
+
+@pytest.mark.parametrize("operation", ["variation", "inpaint"])
+def test_ai_edit_uses_pinned_source_and_preserves_active_version(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    seen: list[bytes | None] = []
+
+    class EditProvider:
+        provider_id = "comfyui"
+
+        def cancel(self) -> None:
+            return None
+
+        def generate(
+            self, request: GenerationRequest, *, reference_image: bytes | None = None
+        ) -> ProviderResult:
+            seen.append(reference_image)
+            candidate = BytesIO()
+            Image.new("RGBA", (32, 32), (255, 0, 0, 255)).save(candidate, "PNG")
+            return ProviderResult(candidate.getvalue(), request.seed, {"edit_applied": True})
+
+    monkeypatch.setattr("app.api.generation.configured_provider", EditProvider)
+    monkeypatch.setattr("app.api.generation.enqueue_generation", lambda _job_id: None)
+    project = create_project(client)
+    asset = client.post(
+        f"/api/v1/projects/{project['id']}/assets/import",
+        data={"name": "Edit source", "asset_type": "character", "style": "eight_bit"},
+        files={"file": ("source.png", png_bytes(), "image/png")},
+    ).json()
+    payload = generation_payload(project["id"])
+    payload.update(
+        asset_id=asset["id"], reference_asset_id=asset["id"],
+        reference_version_id=asset["active_version_id"], operation=operation,
+    )
+    if operation == "inpaint":
+        payload.update(mask_x=3, mask_y=4, mask_width=5, mask_height=6)
+    queued = client.post("/api/v1/generation-jobs", json=payload)
+    assert queued.status_code == 201
+    assert queued.json()["request"]["reference_version_id"] == asset["active_version_id"]
+    assert operation in queued.json()["workflow_id"]
+    assert queued.json()["workflow_version"] == "2"
+    updated = BytesIO()
+    Image.new("RGBA", (32, 32), (0, 0, 255, 255)).save(updated, "PNG")
+    published = client.post(
+        f"/api/v1/assets/{asset['id']}/versions",
+        files={"file": ("later.png", updated.getvalue(), "image/png")},
+    ).json()
+    with Session(get_engine()) as session:
+        service = GenerationService(session, EditProvider())
+        assert service.run(queued.json()["id"]).status == "succeeded"
+        result = service.results(queued.json()["id"])[0]
+        content = (Path(str(project["root_path"])) / result.file_path).read_bytes()
+        with Image.open(BytesIO(content)) as candidate:
+            assert candidate.getpixel((4, 5)) == (255, 0, 0, 255)
+            if operation == "inpaint":
+                assert candidate.getpixel((2, 5)) == (0, 0, 0, 0)
+                assert candidate.getpixel((8, 5)) == (0, 0, 0, 0)
+            else:
+                assert candidate.getpixel((2, 5)) == (255, 0, 0, 255)
+    assert seen == [png_bytes()]
+    current_asset = client.get(f"/api/v1/assets/{asset['id']}").json()
+    assert current_asset["active_version_id"] == published["id"]
+    assert len(client.get(f"/api/v1/assets/{asset['id']}/versions").json()) == 2
+
+
+@pytest.mark.parametrize("changes", [
+    {"operation": "inpaint"},
+    {"operation": "inpaint", "mask_x": 31, "mask_y": 0,
+     "mask_width": 2, "mask_height": 2},
+    {"operation": "variation", "mask_x": 0},
+    {"ipadapter_model": "adapter.safetensors"},
+    {"clip_vision_model": "vision.safetensors"},
+])
+def test_invalid_ai_edit_options_rejected_before_queue(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, changes: dict[str, object]
+) -> None:
+    monkeypatch.setattr(
+        "app.api.generation.configured_provider",
+        lambda: ComfyUIProvider("http://localhost:8188", "sd15.safetensors", 2),
+    )
+    project = create_project(client)
+    asset = client.post(
+        f"/api/v1/projects/{project['id']}/assets/import",
+        data={"name": "Edit source", "asset_type": "character", "style": "eight_bit"},
+        files={"file": ("source.png", png_bytes(), "image/png")},
+    ).json()
+    payload = generation_payload(project["id"])
+    payload.update(asset_id=asset["id"], reference_asset_id=asset["id"], **changes)
+    assert client.post("/api/v1/generation-jobs", json=payload).status_code == 422
+    assert client.get("/api/v1/generation-jobs").json() == []
+
+
+def test_fake_provider_rejects_ai_edit(client: TestClient) -> None:
+    project = create_project(client)
+    asset = client.post(
+        f"/api/v1/projects/{project['id']}/assets/import",
+        data={"name": "Edit source", "asset_type": "character", "style": "eight_bit"},
+        files={"file": ("source.png", png_bytes(), "image/png")},
+    ).json()
+    payload = generation_payload(project["id"])
+    payload.update(
+        asset_id=asset["id"], reference_asset_id=asset["id"], operation="variation",
+    )
+    assert client.post("/api/v1/generation-jobs", json=payload).status_code == 422
+
+
+def test_variation_rejects_wrong_output_size_without_changing_asset(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class WrongSizeProvider:
+        provider_id = "comfyui"
+
+        def cancel(self) -> None:
+            return None
+
+        def generate(
+            self, request: GenerationRequest, *, reference_image: bytes | None = None
+        ) -> ProviderResult:
+            output = BytesIO()
+            Image.new("RGBA", (16, 16), (255, 0, 0, 255)).save(output, "PNG")
+            return ProviderResult(output.getvalue(), request.seed, {"edit_applied": True})
+
+    monkeypatch.setattr("app.api.generation.configured_provider", WrongSizeProvider)
+    monkeypatch.setattr("app.api.generation.enqueue_generation", lambda _job_id: None)
+    project = create_project(client)
+    asset = client.post(
+        f"/api/v1/projects/{project['id']}/assets/import",
+        data={"name": "Edit source", "asset_type": "character", "style": "eight_bit"},
+        files={"file": ("source.png", png_bytes(), "image/png")},
+    ).json()
+    payload = generation_payload(project["id"])
+    payload.update(
+        asset_id=asset["id"], reference_asset_id=asset["id"], operation="variation",
+    )
+    queued = client.post("/api/v1/generation-jobs", json=payload).json()
+    with Session(get_engine()) as session:
+        service = GenerationService(session, WrongSizeProvider())
+        with pytest.raises(ValueError, match="dimensions differ"):
+            service.run(queued["id"])
+        assert service.get(queued["id"]).status == "failed"
+        assert service.results(queued["id"]) == []
+    current_asset = client.get(f"/api/v1/assets/{asset['id']}").json()
+    assert current_asset["active_version_id"] == asset["active_version_id"]

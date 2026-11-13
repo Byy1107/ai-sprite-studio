@@ -10,7 +10,12 @@ All notable changes to AI Sprite Studio are documented here.
 
 - Sprint 8 character animation clips, persisted frame order and timing, and version-pinned frame metadata.
 - Timeline preview with loop/once/ping-pong playback, onion skin, frame editing, and moveset grouping.
-
+- SD1.5 generation and AI edits infer at up to 512 pixels on the longest side, then resize to the requested sprite canvas; edit sources and rectangular masks are scaled together, and workflow version 2 records both sizes.
+- Sprint 7 immutable reference pinning, local capability discovery and optional LoRA, prepared-image ControlNet and IP-Adapter workflows.
+- Pixel-editor variation and selected-region inpainting jobs with candidate review and unchanged active versions until acceptance.
+- Exact outside-mask compositing, edit dimension checks and optional-node/model failure handling.
+- Honest LoRA result metadata: a wired node is reported separately from unverified weight application, with a same-seed comparison warning in the generator.
+- Explicit ComfyUI execution-error and empty-image reporting for optional workflows; result retrieval targets the intended SaveImage node.
 - Sprint 6 specialized character, item, environment, and tileset generator presets.
 - Optional Akar Langit dark-fantasy preset and provider-neutral negative prompts.
 - Sprint 5 opt-in ComfyUI adapter and versioned SD1.5 baseline workflow.

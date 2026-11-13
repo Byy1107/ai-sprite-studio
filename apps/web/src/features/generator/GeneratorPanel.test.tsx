@@ -10,6 +10,48 @@ describe("GeneratorPanel", () => {
     cleanup();
     vi.restoreAllMocks();
   });
+  it("queues a pinned IP-Adapter reference and clears the adapter when disabled", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      if (init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({ id: "job-ip" }), { status: 201 }));
+      }
+      if (String(input).includes("/system/ai/capabilities")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          provider: "comfyui", status: "ready", lora_models: [], controlnet_models: [],
+          ipadapter_models: ["ip-adapter_sd15.safetensors"],
+          clip_vision_models: ["clip-vision.safetensors"],
+          detected_nodes: ["IPAdapterAdvanced"], enabled_features: { ipadapter: true },
+          message: "IP-Adapter available.",
+        })));
+      }
+      if (String(input).endsWith("/assets")) {
+        return Promise.resolve(new Response(JSON.stringify([
+          { id: "hero", name: "Hero", active_version_id: "hero-v1", asset_type: "character" },
+        ])));
+      }
+      return Promise.resolve(new Response("[]"));
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><GeneratorPanel projectId="project-1" /></QueryClientProvider>);
+    await screen.findByRole("option", { name: "ip-adapter_sd15.safetensors" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Reference asset" }), "hero");
+    const adapter = screen.getByRole("combobox", { name: "IP-Adapter model" });
+    const vision = screen.getByRole("combobox", { name: "CLIP vision model" });
+    expect(vision).toBeDisabled();
+    await userEvent.selectOptions(adapter, "ip-adapter_sd15.safetensors");
+    await userEvent.selectOptions(vision, "clip-vision.safetensors");
+    await userEvent.click(screen.getByRole("button", { name: "Generate character" }));
+    const payloads = () => fetchMock.mock.calls.filter((call) => call[1]?.method === "POST")
+      .map((call) => JSON.parse(String(call[1]?.body)));
+    expect(payloads()[0]).toMatchObject({
+      ipadapter_model: "ip-adapter_sd15.safetensors", clip_vision_model: "clip-vision.safetensors",
+      reference_asset_id: "hero", reference_version_id: "hero-v1",
+    });
+    await userEvent.selectOptions(adapter, "");
+    expect(vision).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Generate character" }));
+    expect(payloads()[1]).toMatchObject({ ipadapter_model: null, clip_vision_model: null });
+  });
   it("queues ControlNet with a pinned image and clears its settings when disabled", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       if (init?.method === "POST") {
@@ -70,6 +112,7 @@ describe("GeneratorPanel", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={queryClient}><GeneratorPanel projectId="project-1" /></QueryClientProvider>);
     await screen.findByRole("option", { name: "pixel.safetensors" });
+    expect(screen.getByText(/Compare the same prompt and seed with No LoRA/)).toBeInTheDocument();
     const picker = screen.getByRole("combobox", { name: "LoRA model" });
     const weight = screen.getByRole("spinbutton", { name: "LoRA weight" });
     expect(weight).toBeDisabled();
@@ -111,7 +154,7 @@ describe("GeneratorPanel", () => {
     const picker = screen.getByRole("combobox", { name: "Reference asset" });
     await userEvent.selectOptions(picker, "hero");
     expect(screen.getByAltText("Reference: Hero reference")).toHaveAttribute("src", "/api/v1/asset-versions/version-1/content");
-    const weight = screen.getByRole("spinbutton", { name: "Reference weight (reserved for IP-Adapter)" });
+    const weight = screen.getByRole("spinbutton", { name: "Reference weight (IP-Adapter)" });
     await userEvent.clear(weight);
     await userEvent.type(weight, "0.75");
     await userEvent.click(screen.getByRole("button", { name: "Generate character" }));
@@ -133,7 +176,7 @@ describe("GeneratorPanel", () => {
     expect(weight).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Generate character" }));
     expect(payloads()[2]).toMatchObject({ reference_asset_id: null, reference_version_id: null, reference_weight: 1 });
-    expect(screen.getByText(/Without ControlNet, reference settings are stored only/)).toBeInTheDocument();
+    expect(screen.getByText(/IP-Adapter uses it for visual guidance/)).toBeInTheDocument();
   });
 
   it("queues a preset-driven character generation job", async () => {
