@@ -32,6 +32,13 @@ class GenerationRequest:
     controlnet_strength: float = 1.0
     controlnet_start: float = 0.0
     controlnet_end: float = 1.0
+    ipadapter_model: str | None = None
+    clip_vision_model: str | None = None
+    operation: str = "text_to_sprite"
+    mask_x: int | None = None
+    mask_y: int | None = None
+    mask_width: int | None = None
+    mask_height: int | None = None
 
 
 class UnsupportedGenerationOption(ValueError):

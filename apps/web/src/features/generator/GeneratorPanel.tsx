@@ -18,6 +18,7 @@ import {
 
 import { LoraPicker } from "./LoraPicker";
 import { ControlNetPicker } from "./ControlNetPicker";
+import { IPAdapterPicker } from "./IPAdapterPicker";
 
 const generatorTypes = ["character", "item", "environment", "tileset"] as const;
 type GeneratorType = (typeof generatorTypes)[number];
@@ -44,7 +45,7 @@ function ReferencePicker({ assets }: { assets: Asset[] }) {
   return (
     <fieldset>
       <legend>Reference library</legend>
-      <p>ControlNet uses the selected version as a prepared control image. Without ControlNet, reference settings are stored only; IP-Adapter is not yet integrated.</p>
+      <p>ControlNet uses the selected version as a prepared control image. IP-Adapter uses it for visual guidance when a compatible local model is selected.</p>
       <label>
         Reference asset
         <select name="reference_asset_id" value={selected?.id ?? ""} onChange={(event) => {
@@ -79,7 +80,7 @@ function ReferencePicker({ assets }: { assets: Asset[] }) {
         <p role="alert">Reference history could not be loaded. The pinned version is preserved.</p>
       ) : null}
       <label>
-        Reference weight (reserved for IP-Adapter)
+        Reference weight (IP-Adapter)
         <input name="reference_weight" type="number" min="0" max="2" step="0.05" defaultValue="1" required disabled={!selected} />
       </label>
       {selected && versionId ? (
@@ -186,6 +187,8 @@ export function GeneratorPanel({ projectId }: { projectId: string }) {
       controlnet_strength: Number(form.get("controlnet_strength") ?? 1),
       controlnet_start: Number(form.get("controlnet_start") ?? 0),
       controlnet_end: Number(form.get("controlnet_end") ?? 1),
+      ipadapter_model: String(form.get("ipadapter_model") ?? "") || null,
+      clip_vision_model: String(form.get("clip_vision_model") ?? "") || null,
     });
   }
 
@@ -268,7 +271,10 @@ export function GeneratorPanel({ projectId }: { projectId: string }) {
         {assetsQuery.isError ? <p role="alert">Reference library unavailable: {assetsQuery.error.message}</p> : null}
         <ReferencePicker assets={assetsQuery.data ?? []} />
         <LoraPicker models={capabilitiesQuery.isError ? [] : capabilitiesQuery.data?.lora_models ?? []} />
+        <p className="generator-panel__notice">A listed LoRA may still be incompatible with ComfyUI. Compare the same prompt and seed with No LoRA before trusting its effect.</p>
         <ControlNetPicker models={capabilitiesQuery.isError ? [] : capabilitiesQuery.data?.controlnet_models ?? []} />
+        <IPAdapterPicker models={capabilitiesQuery.isError ? [] : capabilitiesQuery.data?.ipadapter_models ?? []}
+          visionModels={capabilitiesQuery.isError ? [] : capabilitiesQuery.data?.clip_vision_models ?? []} />
         <button type="submit" disabled={createMutation.isPending}>
           {createMutation.isPending ? "Queueing…" : `Generate ${assetType}`}
         </button>

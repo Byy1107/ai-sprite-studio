@@ -1,8 +1,11 @@
 import { PointerEvent, useEffect, useReducer, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   assetVersionContentUrl,
+  createGenerationJob,
+  getAICapabilities,
+  listAssetVersions,
   publishManualVersion,
   type Asset,
 } from "../../lib/api";
@@ -18,7 +21,7 @@ import {
   type PixelPoint,
 } from "./editorState";
 
-const tools: Array<{ id: DrawingTool | "picker" | "pan"; label: string }> = [
+const tools: Array<{ id: DrawingTool | "picker" | "pan" | "select"; label: string }> = [
   { id: "pencil", label: "Pencil" },
   { id: "eraser", label: "Eraser" },
   { id: "picker", label: "Picker" },
@@ -26,6 +29,7 @@ const tools: Array<{ id: DrawingTool | "picker" | "pan"; label: string }> = [
   { id: "line", label: "Line" },
   { id: "rectangle", label: "Rectangle" },
   { id: "pan", label: "Pan" },
+  { id: "select", label: "Select region" },
 ];
 
 const defaultPalette = ["#0b0d17", "#252b47", "#49506b", "#a7aec4", "#d8d2c4", "#b28a45", "#8f4938", "#67b7b2"];
@@ -39,12 +43,29 @@ export function PixelEditor({ asset }: { asset: Asset }) {
   const dragStart = useRef<PixelPoint | null>(null);
   const panStart = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [history, dispatch] = useReducer(editorReducer, emptyHistory);
-  const [tool, setTool] = useState<DrawingTool | "picker" | "pan">("pencil");
+  const [tool, setTool] = useState<DrawingTool | "picker" | "pan" | "select">("pencil");
   const [color, setColor] = useState("#67b7b2");
   const [zoom, setZoom] = useState(16);
   const [grid, setGrid] = useState(true);
   const [message, setMessage] = useState("Loading active version…");
+  const [selection, setSelection] = useState<{
+    x: number; y: number; width: number; height: number;
+  } | null>(null);
+  const [aiPrompt, setAIPrompt] = useState("pixel art sprite variation");
+  const [aiSeed, setAISeed] = useState(1);
+  const [unpublishedChanges, setUnpublishedChanges] = useState(false);
   const draftKey = `ai-sprite-studio:draft:${asset.id}`;
+  const versionsQuery = useQuery({
+    queryKey: ["asset-versions", asset.id],
+    queryFn: ({ signal }) => listAssetVersions(asset.id, signal),
+  });
+  const capabilitiesQuery = useQuery({
+    queryKey: ["ai-capabilities"],
+    queryFn: ({ signal }) => getAICapabilities(signal),
+    retry: false,
+  });
+  const editAvailable = capabilitiesQuery.data?.enabled_features?.variation === true;
+  const sourceVersionId = versionsQuery.data?.[0]?.id;
 
   useEffect(() => {
     let canceled = false;
@@ -54,6 +75,7 @@ export function PixelEditor({ asset }: { asset: Asset }) {
         const draft = JSON.parse(stored) as Draft;
         if (draft.width === asset.width && draft.height === asset.height) {
           dispatch({ type: "load", document: { ...draft, pixels: new Uint8ClampedArray(draft.pixels) } });
+          setUnpublishedChanges(true);
           setMessage("Local draft restored.");
           return;
         }
@@ -101,12 +123,51 @@ export function PixelEditor({ asset }: { asset: Asset }) {
     },
     onSuccess: () => {
       localStorage.removeItem(draftKey);
+      setUnpublishedChanges(false);
+      setSelection(null);
       setMessage("Manual edit published as a new version.");
       queryClient.invalidateQueries({ queryKey: ["asset-versions", asset.id] });
       queryClient.invalidateQueries({ queryKey: ["assets", asset.project_id] });
     },
     onError: (error) => setMessage(error.message),
   });
+
+  const aiEdit = useMutation({
+    mutationFn: (operation: "variation" | "inpaint") => {
+      if (!sourceVersionId) throw new Error("Save an asset version before AI editing.");
+      if (operation === "inpaint" && !selection) throw new Error("Select a region first.");
+      return createGenerationJob({
+        project_id: asset.project_id,
+        asset_id: asset.id,
+        reference_asset_id: asset.id,
+        reference_version_id: sourceVersionId,
+        operation,
+        mask_x: operation === "inpaint" ? selection!.x : null,
+        mask_y: operation === "inpaint" ? selection!.y : null,
+        mask_width: operation === "inpaint" ? selection!.width : null,
+        mask_height: operation === "inpaint" ? selection!.height : null,
+        prompt: aiPrompt.trim(),
+        asset_type: asset.asset_type,
+        style: asset.style === "micro_pixel" ? "micro_pixel" : "eight_bit",
+        width: asset.width,
+        height: asset.height,
+        seed: aiSeed,
+      });
+    },
+    onSuccess: (job) => {
+      setMessage(`AI edit queued: ${job.id}. Review the candidate in project generation jobs.`);
+      queryClient.invalidateQueries({ queryKey: ["generation-jobs", asset.project_id] });
+    },
+    onError: (error) => setMessage(error.message),
+  });
+
+  function updateSelection(start: PixelPoint, end: PixelPoint) {
+    setSelection({
+      x: Math.min(start.x, end.x), y: Math.min(start.y, end.y),
+      width: Math.abs(start.x - end.x) + 1,
+      height: Math.abs(start.y - end.y) + 1,
+    });
+  }
 
   function pointFromEvent(event: PointerEvent<HTMLCanvasElement>): PixelPoint | null {
     if (!history.present) return null;
@@ -127,13 +188,23 @@ export function PixelEditor({ asset }: { asset: Asset }) {
       return;
     }
     dragStart.current = point;
+    if (tool === "select") {
+      updateSelection(point, point);
+      return;
+    }
     if (tool === "fill") {
       dispatch({ type: "apply", document: applyTool(history.present, tool, point, point, color) });
+      setUnpublishedChanges(true);
       dragStart.current = null;
     }
   }
 
   function pointerMove(event: PointerEvent<HTMLCanvasElement>) {
+    if (tool === "select" && dragStart.current) {
+      const point = pointFromEvent(event);
+      if (point) updateSelection(dragStart.current, point);
+      return;
+    }
     if (tool !== "pan" || !panStart.current || !viewportRef.current) return;
     viewportRef.current.scrollLeft = panStart.current.left - (event.clientX - panStart.current.x);
     viewportRef.current.scrollTop = panStart.current.top - (event.clientY - panStart.current.y);
@@ -141,9 +212,18 @@ export function PixelEditor({ asset }: { asset: Asset }) {
 
   function pointerUp(event: PointerEvent<HTMLCanvasElement>) {
     panStart.current = null;
-    if (!history.present || !dragStart.current || tool === "picker" || tool === "pan" || tool === "fill") return;
+    if (tool === "select" && dragStart.current) {
+      const end = pointFromEvent(event);
+      if (end) updateSelection(dragStart.current, end);
+      dragStart.current = null;
+      return;
+    }
+    if (!history.present || !dragStart.current || tool === "picker" || tool === "pan" || tool === "fill" || tool === "select") return;
     const end = pointFromEvent(event);
-    if (end) dispatch({ type: "apply", document: applyTool(history.present, tool, dragStart.current, end, color) });
+    if (end) {
+      dispatch({ type: "apply", document: applyTool(history.present, tool, dragStart.current, end, color) });
+      setUnpublishedChanges(true);
+    }
     dragStart.current = null;
   }
 
@@ -190,8 +270,24 @@ export function PixelEditor({ asset }: { asset: Asset }) {
               onPointerLeave={pointerUp}
             />
             {grid ? <div className="pixel-grid" style={{ backgroundSize: `${zoom}px ${zoom}px` }} /> : null}
+            {selection ? <div className="editor-selection" style={{
+              left: selection.x * zoom, top: selection.y * zoom,
+              width: selection.width * zoom, height: selection.height * zoom,
+            }} /> : null}
           </div>
         </div>
+      </div>
+      <div className="editor-ai-edit">
+        <h5>AI-assisted edit</h5>
+        <p>Uses the latest published version. Publish manual edits before queuing. Generated candidates never replace the active version until accepted.</p>
+        <label>AI edit prompt <input aria-label="AI edit prompt" maxLength={1000} value={aiPrompt} onChange={(event) => setAIPrompt(event.target.value)} /></label>
+        <label>Seed <input aria-label="AI edit seed" type="number" min="0" max="2147483647" value={aiSeed} onChange={(event) => setAISeed(Number(event.target.value))} /></label>
+        <button type="button" disabled={!editAvailable || !sourceVersionId || !history.present || unpublishedChanges || !aiPrompt.trim() || aiEdit.isPending}
+          onClick={() => aiEdit.mutate("variation")}>Generate variation</button>
+        <button type="button" disabled={!capabilitiesQuery.data?.enabled_features?.inpaint || !selection || !sourceVersionId || !history.present || unpublishedChanges || !aiPrompt.trim() || aiEdit.isPending}
+          onClick={() => aiEdit.mutate("inpaint")}>Inpaint selection</button>
+        {capabilitiesQuery.isError || !editAvailable ? <p>Local ComfyUI image-edit nodes are unavailable.</p> : null}
+        {unpublishedChanges ? <p>Publish your current manual changes before AI editing.</p> : null}
       </div>
       <p className="editor-status" aria-live="polite">{message}</p>
     </section>
