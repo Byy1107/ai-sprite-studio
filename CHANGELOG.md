@@ -4,6 +4,8 @@ All notable changes to AI Sprite Studio are documented here.
 
 ## Unreleased
 
+- Start a separate local LoRA training foundation: export curated, captioned immutable asset versions as a checksum-verified ImageFolder-style ZIP. No trainer, model download, or GPU training is included.
+- Add post-V1 LoRA dataset export and opt-in offline CLI preflight/launcher with optional trainer dependency/CUDA probe and atomic process-state records; no trainer, model weights, or GPU result is bundled or claimed.
 - Complete Sprint 11 V1 release-candidate work on a local feature branch with first-export and ComfyUI troubleshooting guides, versioned project/backup/migration reference, and a gated release checklist. No tag or release is created.
 - Reject unsafe stored project roots, traversal paths, linked asset/export/candidate directories, and unsafe trash roots; use a unique temporary metadata file and prevent duplicate-name updates from changing `project.json` before database validation.
 - Verify a fresh Python 3.11 API environment, empty and previous-schema migrations, Node 22/pnpm 10 install, full regression, and browser PNG download.

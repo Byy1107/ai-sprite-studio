@@ -235,6 +235,23 @@ export function listAssetVersions(assetId: string, signal?: AbortSignal): Promis
   return request<AssetVersion[]>(`/assets/${assetId}/versions`, { signal });
 }
 
+export async function downloadLoraDataset(projectId: string, payload: {
+  samples: Array<{ version_id: string; caption: string }>;
+  resolution: 256 | 512;
+  background: string;
+}): Promise<Blob> {
+  const response = await fetch(`${apiBaseUrl}/projects/${projectId}/lora-dataset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const error = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(error?.detail ?? `Backend returned ${response.status}`);
+  }
+  return response.blob();
+}
+
 export function restoreAssetVersion(assetId: string, versionId: string): Promise<AssetVersion> {
   return request<AssetVersion>(`/assets/${assetId}/versions/${versionId}/restore`, {
     method: "POST",

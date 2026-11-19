@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -72,5 +72,35 @@ describe("AssetLibrary", () => {
     fireEvent.submit(screen.getByRole("button", { name: "Import PNG" }).closest("form")!);
 
     expect(await screen.findByRole("button", { name: /Sky Knight/i })).toHaveTextContent("16×24");
+  });
+
+  it("submits explicitly selected published versions for LoRA data preparation", async () => {
+    const asset = {
+      id: "asset-1", project_id: "project-1", name: "Sky Knight",
+      asset_type: "character", style: "eight_bit", width: 16, height: 16,
+      color_mode: "RGBA", active_version_id: "version-1", thumbnail_path: "preview.png",
+      created_at: "2026-11-11T00:00:00Z", updated_at: "2026-11-11T00:00:00Z",
+    };
+    let submitted: Record<string, unknown> | null = null;
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      if (input.toString().includes("lora-dataset")) {
+        submitted = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return Promise.resolve(new Response(JSON.stringify({ detail: "Test refusal" }), { status: 422 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify([asset]), { status: 200 }));
+    });
+
+    renderLibrary();
+    await screen.findByRole("checkbox", { name: "Sky Knight" });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Download LoRA dataset" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Select at least one published asset");
+    await user.click(screen.getByRole("checkbox", { name: "Sky Knight" }));
+    await user.click(screen.getByRole("button", { name: "Download LoRA dataset" }));
+    await waitFor(() => expect(submitted).toMatchObject({
+      resolution: 512, background: "ffffff",
+      samples: [{ version_id: "version-1", caption: "Sky Knight, eight bit pixel art" }],
+    }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Test refusal");
   });
 });

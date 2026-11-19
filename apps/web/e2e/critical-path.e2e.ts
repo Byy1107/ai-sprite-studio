@@ -31,6 +31,10 @@ test("project, manual edit, animation, and spritesheet export survive a page rel
   await page.getByRole("button", { name: "Import PNG" }).click();
   await expect(page.getByText("Active version loaded.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Animation timeline" })).toHaveCount(1);
+  await page.getByRole("checkbox", { name: "Hero" }).check();
+  const datasetDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download LoRA dataset" }).click();
+  expect((await datasetDownload).suggestedFilename()).toBe("lora-dataset.zip");
   await page.getByRole("button", { name: "Export PNG" }).click();
   const pngLink = page.getByRole("link", { name: "PNG" });
   await expect(pngLink).toBeVisible();
