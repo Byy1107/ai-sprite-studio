@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 from PIL import Image
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 
 from app.core.config import get_settings
 from app.db.session import get_engine
@@ -258,4 +259,67 @@ def test_export_migration_up_and_down(tmp_path: Path, monkeypatch: pytest.Monkey
     command.downgrade(configuration, "0005")
     assert "export_records" not in inspect(engine).get_table_names()
     engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_upgrade_from_0005_preserves_project_and_allows_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database_url = f"sqlite:///{tmp_path / 'migration.db'}"
+    workspace = tmp_path / "workspace"
+    project_root = workspace / "legacy-project"
+    project_root.mkdir(parents=True)
+    timestamp = datetime.now(UTC).isoformat()
+    (project_root / "project.json").write_text(
+        json.dumps({
+            "schema_version": 1, "id": "legacy-project", "name": "Legacy Project",
+            "slug": "legacy-project", "description": "Before exports",
+            "created_at": timestamp, "updated_at": timestamp,
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AI_SPRITE_DATABASE_URL", database_url)
+    monkeypatch.setenv("AI_SPRITE_WORKSPACE_DIR", str(workspace))
+    get_settings.cache_clear()
+    get_engine.cache_clear()
+    configuration = Config("alembic.ini")
+    command.upgrade(configuration, "0005")
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(text("""
+            INSERT INTO projects
+                (id, name, slug, description, root_path, schema_version,
+                 created_at, updated_at, last_opened_at, deleted_at)
+            VALUES
+                (:id, :name, :slug, :description, :root_path, 1,
+                 :created_at, :updated_at, NULL, NULL)
+        """), {
+            "id": "legacy-project", "name": "Legacy Project", "slug": "legacy-project",
+            "description": "Before exports", "root_path": str(project_root),
+            "created_at": timestamp, "updated_at": timestamp,
+        })
+    engine.dispose()
+
+    command.upgrade(configuration, "head")
+    with TestClient(create_app()) as upgraded:
+        project = upgraded.get("/api/v1/projects/legacy-project")
+        assert project.status_code == 200
+        assert project.json()["description"] == "Before exports"
+        imported = upgraded.post(
+            "/api/v1/projects/legacy-project/assets/import",
+            data={"name": "Legacy Sprite", "asset_type": "item", "style": "eight_bit"},
+            files={"file": ("sprite.png", png((255, 0, 0, 255)), "image/png")},
+        )
+        assert imported.status_code == 201
+        exported = upgraded.post("/api/v1/exports", json={
+            "asset_id": imported.json()["id"], "format": "png",
+        })
+        assert exported.status_code == 201
+        assert upgraded.get(
+            f"/api/v1/exports/{exported.json()['id']}/files/png"
+        ).status_code == 200
+        assert upgraded.get("/api/v1/projects/legacy-project/integrity").json()[
+            "status"
+        ] == "ok"
+    get_engine.cache_clear()
     get_settings.cache_clear()

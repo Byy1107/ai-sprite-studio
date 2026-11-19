@@ -25,6 +25,7 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - Character movesets support version-pinned frames, timing, loop modes, onion skin, pivot, offset, event markers, and reorder.
 - Sprint 9 supports nearest-neighbor PNG, character-clip spritesheet PNG with a validated schema-v1 JSON contract, GIF preview, and a selectable Godot 4 preset with a tested sample importer at `examples/godot4/`. Exports use unique project-local directories and never replace previous exports. A fresh Python 3.11 backend setup passed the test, lint, and type-check gates.
 - Sprint 10 hardening is complete on its feature branch: local draft recovery, read-only integrity reporting, ZIP backup/restore to a fresh workspace, safe trash/cache policy, keyboard pixel editing, and clearer loading/error states. A real-browser critical path and 200-asset fixture pass; screen-reader and GPU performance audits remain future follow-ups.
+- Sprint 11 implementation and supported-runtime validation are complete. The first-export guide, V1 format/migration reference, and release checklist are in `docs/user-guide.md`, `docs/project-format.md`, and `docs/release-checklist.md`. No V1 release has been tagged.
 - When the editor has focus, B/E/I/F/L/R/H/S select tools; Ctrl+Z/Y undo/redo; Ctrl+S saves an unpublished draft. Typing in form fields does not trigger editor shortcuts.
 - Focus the pixel canvas and use arrow keys to move its visible cursor one pixel at a time. Space/Enter applies pencil, eraser, fill, or picker; press twice to set the endpoints for line, rectangle, or region selection. Pan remains pointer/viewport-scroll based.
 
@@ -57,6 +58,7 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Open `http://127.0.0.1:5173`. See `docs/setup-windows.md` for the full setup and troubleshooting guide.
+Follow `docs/user-guide.md` to import a PNG and create your first export without an AI model.
 
 To back up a project, use **Download backup** on its card. To restore, start the app with a fresh workspace and SQLite database, then use **Restore backup**. Restore will not overwrite an existing project. The ZIP excludes browser drafts, trash, cache, and temporary files and is limited to 128 MB and 5,000 files.
 

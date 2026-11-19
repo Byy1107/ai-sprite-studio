@@ -83,7 +83,7 @@ def create_project(payload: ProjectCreate, service: ProjectServiceDependency) ->
 def get_project(project_id: str, service: ProjectServiceDependency) -> ProjectResponse:
     try:
         return ProjectResponse.model_validate(service.get_project(project_id))
-    except ProjectNotFoundError as error:
+    except (ProjectNotFoundError, ValueError) as error:
         raise translate_project_error(error) from error
 
 
@@ -93,7 +93,8 @@ def update_project(
 ) -> ProjectResponse:
     try:
         project = service.update_project(project_id, payload.name, payload.description)
-    except (DuplicateProjectError, InvalidProjectNameError, ProjectNotFoundError) as error:
+    except (DuplicateProjectError, InvalidProjectNameError,
+            ProjectNotFoundError, ValueError) as error:
         raise translate_project_error(error) from error
     return ProjectResponse.model_validate(project)
 
@@ -102,7 +103,7 @@ def update_project(
 def open_project(project_id: str, service: ProjectServiceDependency) -> ProjectResponse:
     try:
         return ProjectResponse.model_validate(service.open_project(project_id))
-    except ProjectNotFoundError as error:
+    except (ProjectNotFoundError, ValueError) as error:
         raise translate_project_error(error) from error
 
 
@@ -164,6 +165,6 @@ def clear_project_cache(project_id: str, service: ProjectServiceDependency) -> d
 def delete_project(project_id: str, service: ProjectServiceDependency) -> Response:
     try:
         service.delete_project(project_id)
-    except ProjectNotFoundError as error:
+    except (ProjectNotFoundError, ValueError) as error:
         raise translate_project_error(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -38,10 +38,12 @@ class ProjectService:
         )
         return list(self.session.scalars(statement))
 
-    def get_project(self, project_id: str) -> ProjectRecord:
+    def get_project(self, project_id: str, *, validate_root: bool = True) -> ProjectRecord:
         project = self.session.get(ProjectRecord, project_id)
         if project is None or project.deleted_at is not None:
             raise ProjectNotFoundError("Project was not found.")
+        if validate_root:
+            self._safe_project_root(project)
         return project
 
     def create_project(self, draft: ProjectDraft) -> ProjectRecord:
@@ -67,13 +69,15 @@ class ProjectService:
         self, project_id: str, name: str | None, description: str | None
     ) -> ProjectRecord:
         project = self.get_project(project_id)
+        root = self._safe_project_root(project)
         if name is not None:
             slugify_project_name(name)
             project.name = name.strip()
         if description is not None:
             project.description = description.strip()
         try:
-            self.storage.write_metadata(Path(project.root_path), self._metadata(project))
+            self.session.flush()
+            self.storage.write_metadata(root, self._metadata(project))
             self.session.commit()
         except IntegrityError as error:
             self.session.rollback()
@@ -87,10 +91,15 @@ class ProjectService:
         return project
 
     def inspect_integrity(self, project_id: str) -> list[dict[str, str]]:
-        project = self.get_project(project_id)
+        project = self.get_project(project_id, validate_root=False)
         root = Path(project.root_path).resolve()
         issues: list[dict[str, str]] = []
-        if root.parent != self.storage.workspace_dir:
+        try:
+            expected = self.storage.project_path(project.slug)
+        except ValueError:
+            expected = None
+        if (Path(project.root_path).is_symlink() or root.parent != self.storage.workspace_dir
+                or root != expected or Path(project.root_path) != expected):
             return [{"kind": "unsafe_project_root", "reference_id": project.id,
                      "path": project.root_path}]
         if not root.is_dir():
@@ -136,11 +145,18 @@ class ProjectService:
 
     def delete_project(self, project_id: str) -> None:
         project = self.get_project(project_id)
-        path = Path(project.root_path)
+        path = self._safe_project_root(project)
         if path.exists():
             self.storage.move_to_trash(path, project.id)
         project.deleted_at = datetime.now(UTC)
         self.session.commit()
+
+    def _safe_project_root(self, project: ProjectRecord) -> Path:
+        path = Path(project.root_path)
+        expected = self.storage.project_path(project.slug)
+        if path.is_symlink() or path != expected or path.resolve() != expected:
+            raise ValueError("Project root is unsafe; operation stopped.")
+        return path
 
     def clear_cache(self, project_id: str) -> int:
         project = self.get_project(project_id)

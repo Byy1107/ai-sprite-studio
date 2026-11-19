@@ -4,6 +4,10 @@ All notable changes to AI Sprite Studio are documented here.
 
 ## Unreleased
 
+- Complete Sprint 11 V1 release-candidate work on a local feature branch with first-export and ComfyUI troubleshooting guides, versioned project/backup/migration reference, and a gated release checklist. No tag or release is created.
+- Reject unsafe stored project roots, traversal paths, linked asset/export/candidate directories, and unsafe trash roots; use a unique temporary metadata file and prevent duplicate-name updates from changing `project.json` before database validation.
+- Verify a fresh Python 3.11 API environment, empty and previous-schema migrations, Node 22/pnpm 10 install, full regression, and browser PNG download.
+
 - Sprint 10 complete on its feature branch: autosave/recovery for unpublished editor drafts, read-only project integrity reports, verified local project ZIP backup/restore, and real-browser critical-path validation.
 - Add editor-scoped keyboard shortcuts for drawing tools, undo/redo, and local draft saving without intercepting text inputs.
 - Add confirmed per-project cache cleanup with database-reference and path guards; preserve trash indefinitely without automatic purging.

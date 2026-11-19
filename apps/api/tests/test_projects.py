@@ -1,5 +1,7 @@
 import hashlib
 import json
+import os
+import subprocess
 from io import BytesIO
 from pathlib import Path
 from time import perf_counter
@@ -12,11 +14,11 @@ from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.db.models import AssetRecord
+from app.db.models import AssetRecord, AssetVersionRecord, ProjectRecord
 from app.db.session import get_engine
 from app.domain.projects import InvalidProjectNameError, slugify_project_name
 from app.main import create_app, logger
-from app.services.project_storage import ProjectStorage
+from app.services.project_storage import ProjectStorage, resolve_project_path
 
 
 @pytest.fixture
@@ -73,6 +75,21 @@ def test_duplicate_and_unsafe_names_are_rejected(client: TestClient) -> None:
     assert first.status_code == 201
     assert duplicate.status_code == 409
     assert unsafe.status_code == 422
+
+
+def test_duplicate_update_does_not_change_project_metadata(client: TestClient) -> None:
+    first = client.post("/api/v1/projects", json={"name": "First"}).json()
+    second = client.post("/api/v1/projects", json={"name": "Second"}).json()
+    metadata_path = Path(second["root_path"]) / "project.json"
+    before = metadata_path.read_bytes()
+
+    response = client.patch(
+        f"/api/v1/projects/{second['id']}", json={"name": first["name"]}
+    )
+
+    assert response.status_code == 409
+    assert metadata_path.read_bytes() == before
+    assert client.get(f"/api/v1/projects/{second['id']}").json()["name"] == "Second"
 
 
 def test_integrity_reports_missing_version_without_changing_database(client: TestClient) -> None:
@@ -221,6 +238,155 @@ def test_trash_collision_keeps_both_copies(tmp_path: Path) -> None:
 
     assert source.is_dir()
     assert (existing / "keep.txt").read_text(encoding="utf-8") == "original"
+
+
+def test_project_file_path_rejects_traversal_and_absolute_paths(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    with pytest.raises(ValueError):
+        resolve_project_path(root, "../outside.png")
+    with pytest.raises(ValueError):
+        resolve_project_path(root, tmp_path / "outside.png")
+    with pytest.raises(ValueError):
+        resolve_project_path(root, "C:outside.png")
+
+
+def test_metadata_update_does_not_follow_fixed_temporary_file(tmp_path: Path) -> None:
+    storage = ProjectStorage(tmp_path)
+    root = storage.create("metadata", {"name": "First"})
+    legacy_temporary = root / "project.json.tmp"
+    legacy_temporary.write_text("retain", encoding="utf-8")
+
+    storage.write_metadata(root, {"name": "Second"})
+
+    assert legacy_temporary.read_text(encoding="utf-8") == "retain"
+    assert json.loads((root / "project.json").read_text(encoding="utf-8")) == {
+        "name": "Second"
+    }
+
+
+def test_import_rejects_linked_assets_directory(
+    client: TestClient, tmp_path: Path
+) -> None:
+    project = client.post("/api/v1/projects", json={"name": "Linked Assets"}).json()
+    root = Path(project["root_path"])
+    linked = root / "assets"
+    linked.rmdir()
+    outside = tmp_path / "outside-assets"
+    outside.mkdir()
+    if os.name == "nt":
+        result = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(linked), str(outside)],
+            capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            pytest.skip("Windows junction creation is unavailable.")
+    else:
+        linked.symlink_to(outside, target_is_directory=True)
+    output = BytesIO()
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(output, format="PNG")
+    try:
+        response = client.post(
+            f"/api/v1/projects/{project['id']}/assets/import",
+            data={"name": "Unsafe", "asset_type": "item", "style": "micro_pixel"},
+            files={"file": ("unsafe.png", output.getvalue(), "image/png")},
+        )
+        assert response.status_code == 422
+        assert list(outside.iterdir()) == []
+    finally:
+        linked.rmdir()
+
+
+def test_version_download_rejects_traversal_from_database(
+    client: TestClient, tmp_path: Path
+) -> None:
+    project = client.post("/api/v1/projects", json={"name": "Version Path"}).json()
+    output = BytesIO()
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(output, format="PNG")
+    asset = client.post(
+        f"/api/v1/projects/{project['id']}/assets/import",
+        data={"name": "Hero", "asset_type": "character", "style": "eight_bit"},
+        files={"file": ("hero.png", output.getvalue(), "image/png")},
+    ).json()
+    version = client.get(f"/api/v1/assets/{asset['id']}/versions").json()[0]
+    outside = tmp_path / "workspace" / "outside.png"
+    outside.write_bytes(output.getvalue())
+    with Session(get_engine()) as session:
+        record = session.get(AssetVersionRecord, version["id"])
+        assert record is not None
+        record.file_path = "../outside.png"
+        session.commit()
+
+    response = client.get(f"/api/v1/asset-versions/{version['id']}/content")
+
+    assert response.status_code == 422
+
+
+def test_update_and_delete_reject_project_root_outside_workspace(
+    client: TestClient, tmp_path: Path
+) -> None:
+    project = client.post("/api/v1/projects", json={"name": "Root Guard"}).json()
+    original_root = Path(project["root_path"])
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "project.json").write_text("untouched", encoding="utf-8")
+    with Session(get_engine()) as session:
+        record = session.get(ProjectRecord, project["id"])
+        assert record is not None
+        record.root_path = str(outside)
+        session.commit()
+
+    updated = client.patch(
+        f"/api/v1/projects/{project['id']}", json={"description": "unsafe"}
+    )
+    deleted = client.delete(f"/api/v1/projects/{project['id']}")
+
+    assert updated.status_code == 422
+    assert deleted.status_code == 422
+    assert (outside / "project.json").read_text(encoding="utf-8") == "untouched"
+    assert original_root.is_dir()
+    assert client.get(f"/api/v1/projects/{project['id']}").status_code == 422
+    assert client.get(f"/api/v1/projects/{project['id']}/integrity").json()[
+        "issues"
+    ][0]["kind"] == "unsafe_project_root"
+    output = BytesIO()
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(output, format="PNG")
+    imported = client.post(
+        f"/api/v1/projects/{project['id']}/assets/import",
+        data={"name": "Unsafe", "asset_type": "item", "style": "micro_pixel"},
+        files={"file": ("unsafe.png", output.getvalue(), "image/png")},
+    )
+    assert imported.status_code == 422
+    assert not (outside / "assets").exists()
+    with Session(get_engine()) as session:
+        record = session.get(ProjectRecord, project["id"])
+        assert record is not None
+        assert record.description == ""
+        assert record.deleted_at is None
+
+
+def test_delete_rejects_unsafe_trash_path(client: TestClient, tmp_path: Path) -> None:
+    project = client.post("/api/v1/projects", json={"name": "Trash Guard"}).json()
+    workspace = Path(project["root_path"]).parent
+    outside = tmp_path / "outside-trash"
+    outside.mkdir()
+    linked = workspace / ".trash"
+    if os.name == "nt":
+        result = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(linked), str(outside)],
+            capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            pytest.skip("Windows junction creation is unavailable.")
+    else:
+        linked.symlink_to(outside, target_is_directory=True)
+    try:
+        deleted = client.delete(f"/api/v1/projects/{project['id']}")
+        assert deleted.status_code == 422
+        assert Path(project["root_path"]).is_dir()
+        assert list(outside.iterdir()) == []
+    finally:
+        linked.rmdir()
 
 
 def test_cache_cleanup_removes_only_unreferenced_cache_files(client: TestClient) -> None:

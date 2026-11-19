@@ -3,6 +3,7 @@ import json
 import os
 from io import BytesIO
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 from PIL import Image, UnidentifiedImageError
@@ -14,6 +15,7 @@ from app.domain.exports import grid_layout
 from app.services.animations import AnimationService
 from app.services.asset_storage import MAX_IMPORT_BYTES
 from app.services.assets import AssetService
+from app.services.project_storage import resolve_project_path
 
 MAX_SHEET_PIXELS = 32_000_000
 MAX_FRAMES = 256
@@ -192,7 +194,7 @@ class ExportService:
         try:
             with Image.open(BytesIO(content)) as image:
                 image.load()
-                return image.convert("RGBA")
+                return cast(Image.Image, image.convert("RGBA"))
         except (OSError, UnidentifiedImageError) as error:
             raise ValueError("A pinned source PNG is unreadable.") from error
 
@@ -211,7 +213,7 @@ class ExportService:
     ) -> ExportRecord:
         project = self.assets.projects.get_project(project_id)
         export_id = str(uuid4())
-        output_dir = Path(project.root_path) / "exports" / export_id
+        output_dir = resolve_project_path(Path(project.root_path), Path("exports") / export_id)
         output_dir.mkdir(parents=True, exist_ok=False)
         output_path = output_dir / f"sprite.{extension}"
         self._write_new(output_path, content)

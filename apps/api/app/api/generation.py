@@ -14,6 +14,8 @@ from app.domain.generation import GenerationRequest, UnsupportedGenerationOption
 from app.domain.generation_presets import preset_by_id, serialized_presets
 from app.services.assets import AssetService
 from app.services.generation import GenerationService, configured_provider, enqueue_generation
+from app.services.project_storage import resolve_project_path
+from app.services.projects import ProjectService
 
 router = APIRouter(tags=["generation"])
 SessionDependency = Annotated[Session, Depends(get_session)]
@@ -190,8 +192,11 @@ def accept_generation_result(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     try:
+        ProjectService(session, settings.workspace_dir).get_project(project.id)
+        root = Path(project.root_path)
+        candidate = resolve_project_path(root, result.file_path)
         version = AssetService(session, settings.workspace_dir).create_generated_version(
-            job.asset_id, (Path(project.root_path) / result.file_path).read_bytes(), job.id
+            job.asset_id, candidate.read_bytes(), job.id
         )
     except (ValueError, OSError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error

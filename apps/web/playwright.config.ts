@@ -39,7 +39,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: "pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort",
+      command: `"${process.execPath}" "${join(webDir, "node_modules", "vite", "bin", "vite.js")}" --host 127.0.0.1 --port 5173 --strictPort`,
       cwd: webDir,
       url: "http://127.0.0.1:5173",
       reuseExistingServer: false,
