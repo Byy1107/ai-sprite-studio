@@ -1,6 +1,6 @@
 # Sprint 10: Recovery, Backup, Performance, and UX Hardening
 
-Status: in progress. Work remains local and uncommitted until requested.
+Status: complete on the Sprint 10 feature branch; ready for review. No merge or release has been performed.
 
 ## Goal
 
@@ -25,7 +25,6 @@ Make existing offline-first project and asset workflows safer for real use witho
 ## Non-scope
 
 - No cloud backup, telemetry, model downloads, or Sprint 11 release packaging.
-- No commit, push, or merge without a separate user request.
 
 ## Increment implemented
 
@@ -42,16 +41,20 @@ Make existing offline-first project and asset workflows safer for real use witho
 - Asset/version, export, and generator panels now distinguish loading and failed requests from empty results. Version restore cannot be submitted twice while pending. Keyboard focus has a visible outline and several low-contrast labels are brighter.
 - A mocked frontend integration test exercises project creation, opening, PNG import, animation clip/frame creation, and spritesheet JSON export. It complements the backend critical-path smoke test but is not a browser-level end-to-end test.
 - Reproducible local probes now cover 100 editor pencil strokes on a 128×128 canvas, 20 nearest-neighbor thumbnail writes from 512×512 PNGs, and ten serial fake-provider jobs. They assert output correctness but deliberately do not impose machine-dependent CI timing thresholds.
+- The focused pixel canvas now exposes a visible keyboard cursor. Arrow keys move one pixel, Space/Enter applies the selected drawing tool, and two presses set the endpoints for line, rectangle, or region selection. Tests cover keyboard drawing and draft autosave without publishing. Pan still requires pointer input or viewport scrolling.
+- The viewport is focusable for keyboard scrolling. Project, animation, export, asset, and generator panels distinguish loading and error states with live status or alert roles. Duplicate sibling keys in the asset detail were removed, preventing repeated animation panels; the selected asset now follows refreshed server state after publishing a version.
+- A Chrome/Playwright smoke test runs against real FastAPI and Vite servers with a fresh temporary SQLite database and workspace. It covers project creation, PNG import, keyboard pixel edit, immutable publish, animation frame, spritesheet JSON export, and page reload. A second browser test renders 200 imported asset tiles.
 
 ## Local performance profile
 
-Run `pnpm --dir apps/web exec vitest run src/features/editor/editorState.performance.test.ts --reporter=verbose` and, from `apps/api`, `python -m pytest tests/test_sprint10_performance.py -q -s`. Local runs measured 36–46 ms for 100 editor strokes, 0.050 s for 20 thumbnail imports, and 0.152 s for ten fake jobs. These are elapsed process times on the current development machine, not GPU/ComfyUI measurements or browser frame-rate guarantees. The 200-asset open/list test retains its separate 5-second target; browser rendering has not been profiled.
+Run `pnpm --dir apps/web exec vitest run src/features/editor/editorState.performance.test.ts --reporter=verbose` and, from `apps/api`, `python -m pytest tests/test_sprint10_performance.py -q -s`. Local runs measured 36–46 ms for 100 editor strokes, 0.050 s for 20 thumbnail imports, and 0.152 s for ten fake jobs. The backend 200-asset open/list test retains its 5-second target. Chrome rendered 200 asset tiles in 187 ms in one local E2E run. These are process/UI observations on the current development machine, not GPU/ComfyUI measurements or universal frame-rate guarantees.
 
-## Remaining before acceptance
+## Acceptance and exclusions
 
-- In-app trash restore/purge remains deferred; there is no automatic deletion of recoverable project folders.
-- Broader accessibility review and some loading/error paths outside the updated panels still need review.
-- Browser-level critical-path smoke test, browser rendering/GPU profiling on the target hardware, and full Sprint 10 acceptance.
+- Interrupted edits recover as local drafts without altering published versions; backup restores verified data into a separate workspace; integrity and startup checks report missing files without mutation.
+- The 200-asset backend fixture meets its provisional 5-second API target, and the real-browser critical path plus 200-tile render pass.
+- Basic keyboard and status/error accessibility is covered by automated tests. A manual screen-reader audit and real GPU/ComfyUI performance study remain separate follow-up work, not claims of this sprint.
+- In-app trash restore/purge remains deferred by policy; no automatic deletion of recoverable project folders occurs.
 
 ## Risks
 
@@ -61,6 +64,7 @@ Run `pnpm --dir apps/web exec vitest run src/features/editor/editorState.perform
 
 ## Validation to date
 
-- Full backend regression: 105 tests passed; Ruff passed on Python 3.11. Full mypy fails on a redundant cast in the unchanged `app/services/exports.py:196`.
-- Full frontend regression: 28 tests passed; ESLint, TypeScript, and Vite production build passed.
-- Upstream Starlette/Alembic deprecation warnings and the pre-existing duplicate React key warning remain non-fatal. Browser-level critical-path validation, representative profiling, and accessibility review are still required before declaring Sprint 10 complete.
+- Backend: 105 pytest tests passed; Ruff and full mypy passed on Python 3.11. A redundant export-service cast was removed so the type-check gate is clean.
+- Frontend: 30 Vitest tests passed; ESLint, TypeScript, and Vite production build passed. Two Chrome/Playwright E2E tests passed against real localhost services and isolated temporary data.
+- Reproduce browser checks on Windows with an installed Google Chrome, free ports 8000/5173, Python 3.11 backend dependencies, and `pnpm test:e2e`. Set `AI_SPRITE_PYTHON` to a Python executable if neither `apps/api/.venv-local` nor `apps/api/.venv` is used. Playwright does not download a browser or model for this run.
+- Upstream Starlette/Alembic deprecation and Node `--localstorage-file` warnings remain non-fatal. Browser E2E revealed and verified the fix for repeated animation panels.

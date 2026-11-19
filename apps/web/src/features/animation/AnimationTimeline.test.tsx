@@ -18,6 +18,17 @@ const asset: Asset = {
 };
 
 describe("AnimationTimeline", () => {
+  it("distinguishes loading from a failed animation list", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(
+      JSON.stringify({ detail: "Animation database unavailable" }), { status: 503 },
+    ));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><AnimationTimeline asset={asset} /></QueryClientProvider>);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading animation clips");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load animations");
+  });
+
   it("shows the selected clip direction rather than the previous clip value", async () => {
     const clips: AnimationClip[] = [
       { id: "clip-up", asset_id: asset.id, name: "walk", direction: "up", fps: 8,

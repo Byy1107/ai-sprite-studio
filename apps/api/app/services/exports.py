@@ -3,7 +3,6 @@ import json
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import cast
 from uuid import uuid4
 
 from PIL import Image, UnidentifiedImageError
@@ -193,7 +192,7 @@ class ExportService:
         try:
             with Image.open(BytesIO(content)) as image:
                 image.load()
-                return cast(Image.Image, image.convert("RGBA"))
+                return image.convert("RGBA")
         except (OSError, UnidentifiedImageError) as error:
             raise ValueError("A pinned source PNG is unreadable.") from error
 

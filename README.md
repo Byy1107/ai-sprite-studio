@@ -24,8 +24,9 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - Optional workflow wiring and safety checks have automated coverage. On a GTX 1070 Ti, baseline generation and AI edits now render at up to 512 pixels before nearest-neighbor resizing; a sword silhouette remained recognizable through variation and masked inpainting. One locally converted LoRA was verified to affect pixels, but did not improve quality. Background cleanup and pixel-art quality remain open; ControlNet and IP-Adapter still require compatible local models and GPU validation.
 - Character movesets support version-pinned frames, timing, loop modes, onion skin, pivot, offset, event markers, and reorder.
 - Sprint 9 supports nearest-neighbor PNG, character-clip spritesheet PNG with a validated schema-v1 JSON contract, GIF preview, and a selectable Godot 4 preset with a tested sample importer at `examples/godot4/`. Exports use unique project-local directories and never replace previous exports. A fresh Python 3.11 backend setup passed the test, lint, and type-check gates.
-- Sprint 10 is in progress: the pixel editor autosaves unpublished drafts locally, a read-only project integrity check reports missing files, and project ZIP backup/restore supports moving a project to a fresh workspace. Trash retention and confirmed cache cleanup are implemented. Loading/error states and keyboard focus visibility are improved; profiling and browser-level validation remain pending.
+- Sprint 10 hardening is complete on its feature branch: local draft recovery, read-only integrity reporting, ZIP backup/restore to a fresh workspace, safe trash/cache policy, keyboard pixel editing, and clearer loading/error states. A real-browser critical path and 200-asset fixture pass; screen-reader and GPU performance audits remain future follow-ups.
 - When the editor has focus, B/E/I/F/L/R/H/S select tools; Ctrl+Z/Y undo/redo; Ctrl+S saves an unpublished draft. Typing in form fields does not trigger editor shortcuts.
+- Focus the pixel canvas and use arrow keys to move its visible cursor one pixel at a time. Space/Enter applies pencil, eraser, fill, or picker; press twice to set the endpoints for line, rectangle, or region selection. Pan remains pointer/viewport-scroll based.
 
 ## Requirements
 
@@ -68,12 +69,15 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm test:e2e
 
 cd apps/api
 python -m ruff check .
 python -m mypy app
 python -m pytest
 ```
+
+The Windows E2E command requires installed Google Chrome, Python 3.11 backend dependencies, and free ports 8000/5173. It starts FastAPI with a fresh SQLite database and workspace under the system temporary directory, then starts Vite; it does not use your regular project data or download a browser. Set `AI_SPRITE_PYTHON` when your backend virtual environment is in a nonstandard location.
 
 ## Safety and privacy
 

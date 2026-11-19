@@ -111,20 +111,23 @@ function JobResults({ job }: { job: GenerationJob }) {
   if (job.status !== "succeeded") return null;
   if (resultsQuery.isPending) return <p role="status">Loading generated candidates…</p>;
   if (resultsQuery.isError) return <p role="alert">Could not load candidates: {resultsQuery.error.message}</p>;
-  return resultsQuery.data?.length ? (
-    <div className="job-results">
-      {resultsQuery.data.map((result) => (
-        <button
-          key={result.id}
-          type="button"
-          disabled={result.selected || !job.asset_id || acceptMutation.isPending}
-          onClick={() => acceptMutation.mutate(result.id)}
-        >
-          {result.selected ? "Accepted" : job.asset_id ? "Accept as version" : "Link an asset to accept"}
-        </button>
-      ))}
-    </div>
-  ) : null;
+  return <>
+    {acceptMutation.isError ? <p role="alert">Could not accept candidate: {acceptMutation.error.message}</p> : null}
+    {resultsQuery.data?.length ? (
+      <div className="job-results">
+        {resultsQuery.data.map((result) => (
+          <button
+            key={result.id}
+            type="button"
+            disabled={result.selected || !job.asset_id || acceptMutation.isPending}
+            onClick={() => acceptMutation.mutate(result.id)}
+          >
+            {result.selected ? "Accepted" : job.asset_id ? "Accept as version" : "Link an asset to accept"}
+          </button>
+        ))}
+      </div>
+    ) : null}
+  </>;
 }
 
 export function GeneratorPanel({ projectId }: { projectId: string }) {

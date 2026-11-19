@@ -13,6 +13,45 @@ afterEach(() => {
 });
 
 describe("PixelEditor", () => {
+  it("draws with a focused canvas and keyboard without publishing a version", async () => {
+    let stored = JSON.stringify({ width: 2, height: 2, pixels: Array(16).fill(0) });
+    vi.stubGlobal("localStorage", {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => { stored = value; },
+      removeItem: vi.fn(),
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("[]"));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      clearRect: vi.fn(), putImageData: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.stubGlobal("ImageData", class {
+      constructor(public data: Uint8ClampedArray, public width: number, public height: number) {}
+    });
+    const asset = {
+      id: "keyboard-asset", project_id: "project-1", name: "Knight", asset_type: "character" as const,
+      style: "eight_bit" as const, width: 2, height: 2, color_mode: "RGBA",
+      active_version_id: null, thumbnail_path: "preview.png",
+      created_at: "2026-11-11T00:00:00Z", updated_at: "2026-11-11T00:00:00Z",
+    };
+    render(<QueryClientProvider client={new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })}><PixelEditor asset={asset} /></QueryClientProvider>);
+    expect(await screen.findByText(/Local draft restored/)).toBeInTheDocument();
+    const canvas = screen.getByLabelText("Pixel canvas");
+    canvas.focus();
+    const user = userEvent.setup();
+    await user.keyboard("{ArrowRight}{ArrowDown} ");
+    expect(screen.getByText(/Keyboard cursor: 2, 2/)).toBeInTheDocument();
+    await user.keyboard("l{Enter}{ArrowLeft}{Enter}");
+    expect(screen.getByText(/Keyboard cursor: 1, 2/)).toBeInTheDocument();
+    await waitFor(() => {
+      const pixels = JSON.parse(stored).pixels as number[];
+      expect(pixels[(1 * 2 + 0) * 4 + 3]).toBe(255);
+      expect(pixels[(1 * 2 + 1) * 4 + 3]).toBe(255);
+    }, { timeout: 2000 });
+    expect(asset.active_version_id).toBeNull();
+  });
+
   it("autosaves an interrupted draft and restores it without publishing", async () => {
     let stored = JSON.stringify({ width: 2, height: 2, pixels: Array(16).fill(0) });
     const setItem = vi.fn((_key: string, value: string) => { stored = value; });

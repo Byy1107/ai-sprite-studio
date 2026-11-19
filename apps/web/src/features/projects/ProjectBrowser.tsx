@@ -168,7 +168,7 @@ export function ProjectBrowser() {
         </form>
       ) : null}
 
-      {projectsQuery.isPending ? <p className="empty-state">Loading local projects…</p> : null}
+      {projectsQuery.isPending ? <p className="empty-state" role="status">Loading local projects…</p> : null}
       {projectsQuery.isError ? <p className="form-error" role="alert">{projectsQuery.error.message}</p> : null}
       {projectsQuery.data?.length === 0 ? (
         <div className="empty-state">

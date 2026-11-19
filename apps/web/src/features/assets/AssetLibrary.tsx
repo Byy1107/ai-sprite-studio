@@ -49,19 +49,20 @@ function VersionHistory({ asset }: { asset: Asset }) {
 
 export function AssetLibrary({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<Asset | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const assets = useQuery({
     queryKey: ["assets", projectId],
     queryFn: ({ signal }) => listAssets(projectId, signal),
   });
+  const selected = assets.data?.find((asset) => asset.id === selectedId) ?? null;
   const importer = useMutation({
     mutationFn: (payload: FormData) => importAsset(projectId, payload),
     onSuccess: (asset) => {
-      setSelected(asset);
       queryClient.setQueryData<Asset[]>(["assets", projectId], (current = []) => [
         ...current.filter((item) => item.id !== asset.id),
         asset,
       ]);
+      setSelectedId(asset.id);
       queryClient.invalidateQueries({ queryKey: ["assets", projectId] });
     },
   });
@@ -101,7 +102,7 @@ export function AssetLibrary({ projectId }: { projectId: string }) {
       {assets.data?.length === 0 ? <p className="asset-empty">No assets imported yet.</p> : null}
       <div className="asset-grid">
         {assets.data?.map((asset) => (
-          <button className="asset-tile" type="button" key={asset.id} onClick={() => setSelected(asset)}>
+          <button className="asset-tile" type="button" key={asset.id} onClick={() => setSelectedId(asset.id)}>
             <strong>{asset.name}</strong>
             <span>{asset.asset_type} · {asset.style.replace("_", " ")}</span>
             <span>{asset.width}×{asset.height} · {asset.color_mode}</span>
@@ -110,8 +111,8 @@ export function AssetLibrary({ projectId }: { projectId: string }) {
       </div>
       {selected ? <PixelEditor asset={selected} /> : null}
       {selected ? <VersionHistory asset={selected} /> : null}
-      {selected?.asset_type === "character" ? <AnimationTimeline key={selected.id} asset={selected} /> : null}
-      {selected ? <ExportPanel key={selected.id} asset={selected} /> : null}
+      {selected?.asset_type === "character" ? <AnimationTimeline key={`animation-${selected.id}`} asset={selected} /> : null}
+      {selected ? <ExportPanel key={`export-${selected.id}`} asset={selected} /> : null}
     </section>
   );
 }

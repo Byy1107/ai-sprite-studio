@@ -66,6 +66,8 @@ export function PixelEditor({ asset }: { asset: Asset }) {
   const panStart = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [history, dispatch] = useReducer(editorReducer, emptyHistory);
   const [tool, setTool] = useState<DrawingTool | "picker" | "pan" | "select">("pencil");
+  const [keyboardCursor, setKeyboardCursor] = useState<PixelPoint>({ x: 0, y: 0 });
+  const [keyboardAnchor, setKeyboardAnchor] = useState<PixelPoint | null>(null);
   const [color, setColor] = useState("#67b7b2");
   const [zoom, setZoom] = useState(16);
   const [grid, setGrid] = useState(true);
@@ -283,6 +285,53 @@ export function PixelEditor({ asset }: { asset: Asset }) {
     }
   }
 
+  function handleCanvasKeyDown(event: KeyboardEvent<HTMLCanvasElement>) {
+    if (!history.present) return;
+    const offsets: Record<string, PixelPoint> = {
+      ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 },
+      ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 },
+    };
+    const offset = offsets[event.key];
+    if (offset) {
+      event.preventDefault();
+      event.stopPropagation();
+      const width = history.present.width;
+      const height = history.present.height;
+      setKeyboardCursor((current) => ({
+        x: Math.max(0, Math.min(width - 1, current.x + offset.x)),
+        y: Math.max(0, Math.min(height - 1, current.y + offset.y)),
+      }));
+      return;
+    }
+    if (event.key !== " " && event.key !== "Enter") return;
+    event.preventDefault();
+    event.stopPropagation();
+    const point = {
+      x: Math.min(keyboardCursor.x, history.present.width - 1),
+      y: Math.min(keyboardCursor.y, history.present.height - 1),
+    };
+    if (tool === "pan") return;
+    if (tool === "picker") {
+      setColor(colorAt(history.present, point));
+      return;
+    }
+    if (tool === "line" || tool === "rectangle" || tool === "select") {
+      if (!keyboardAnchor) {
+        setKeyboardAnchor(point);
+        return;
+      }
+      if (tool === "select") updateSelection(keyboardAnchor, point);
+      else {
+        dispatch({ type: "apply", document: applyTool(history.present, tool, keyboardAnchor, point, color) });
+        setUnpublishedChanges(true);
+      }
+      setKeyboardAnchor(null);
+      return;
+    }
+    dispatch({ type: "apply", document: applyTool(history.present, tool, point, point, color) });
+    setUnpublishedChanges(true);
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
     if (event.altKey) return;
@@ -307,6 +356,7 @@ export function PixelEditor({ asset }: { asset: Asset }) {
     if (event.shiftKey || !shortcutTool) return;
     event.preventDefault();
     setTool(shortcutTool);
+    setKeyboardAnchor(null);
   }
 
   return (
@@ -321,9 +371,10 @@ export function PixelEditor({ asset }: { asset: Asset }) {
         </div>
       </div>
       <div className="editor-toolbar" role="toolbar" aria-label="Drawing tools">
-        {tools.map((item) => <button type="button" aria-keyshortcuts={shortcutLabels[item.id]} aria-pressed={tool === item.id} key={item.id} onClick={() => setTool(item.id)}>{item.label}</button>)}
+        {tools.map((item) => <button type="button" aria-keyshortcuts={shortcutLabels[item.id]} aria-pressed={tool === item.id} key={item.id} onClick={() => { setTool(item.id); setKeyboardAnchor(null); }}>{item.label}</button>)}
       </div>
       <p>Keyboard: B pencil, E eraser, I picker, F fill, L line, R rectangle, H pan, S select. Ctrl+Z undo, Ctrl+Y redo, Ctrl+S save draft.</p>
+      <p id={`editor-canvas-help-${asset.id}`}>Focus the canvas, use arrow keys to move one pixel, then Space or Enter to apply the tool. For line, rectangle, or selection, press twice to set both corners. Pan uses pointer or viewport scrolling.</p>
       <div className="editor-layout">
         <aside className="palette-panel">
           <label>Color <input aria-label="Editor color" type="color" value={color} onChange={(event) => setColor(event.target.value)} /></label>
@@ -331,17 +382,24 @@ export function PixelEditor({ asset }: { asset: Asset }) {
           <label>Zoom <input aria-label="Editor zoom" type="range" min="4" max="32" step="2" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
           <label><input type="checkbox" checked={grid} onChange={(event) => setGrid(event.target.checked)} /> Grid</label>
         </aside>
-        <div className="editor-viewport" ref={viewportRef}>
+        <div className="editor-viewport" ref={viewportRef} role="region" aria-label="Canvas viewport" tabIndex={0}>
           <div className="canvas-wrap" style={{ width: asset.width * zoom, height: asset.height * zoom }}>
             <canvas
               ref={canvasRef}
               aria-label="Pixel canvas"
+              aria-describedby={`editor-canvas-help-${asset.id}`}
+              tabIndex={0}
               style={{ width: asset.width * zoom, height: asset.height * zoom }}
+              onKeyDown={handleCanvasKeyDown}
               onPointerDown={pointerDown}
               onPointerMove={pointerMove}
               onPointerUp={pointerUp}
               onPointerLeave={pointerUp}
             />
+            <div className="editor-keyboard-cursor" style={{
+              left: keyboardCursor.x * zoom, top: keyboardCursor.y * zoom,
+              width: zoom, height: zoom,
+            }} />
             {grid ? <div className="pixel-grid" style={{ backgroundSize: `${zoom}px ${zoom}px` }} /> : null}
             {selection ? <div className="editor-selection" style={{
               left: selection.x * zoom, top: selection.y * zoom,
@@ -350,6 +408,7 @@ export function PixelEditor({ asset }: { asset: Asset }) {
           </div>
         </div>
       </div>
+      <p aria-live="polite">Keyboard cursor: {keyboardCursor.x + 1}, {keyboardCursor.y + 1}{keyboardAnchor ? "; first corner set" : ""}.</p>
       <div className="editor-ai-edit">
         <h5>AI-assisted edit</h5>
         <p>Uses the latest published version. Publish manual edits before queuing. Generated candidates never replace the active version until accepted.</p>
