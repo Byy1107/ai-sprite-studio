@@ -87,6 +87,11 @@ export function ExportPanel({ asset }: { asset: Asset }) {
         </button>
       </form>}
       {mutation.isError && <p className="form-error" role="alert">{mutation.error.message}</p>}
+      {versions.isPending && <p role="status">Loading export versions…</p>}
+      {versions.isError && <p className="form-error" role="alert">Could not load export versions: {versions.error.message}</p>}
+      {clips.isPending && asset.asset_type === "character" && <p role="status">Loading animation clips…</p>}
+      {clips.isError && <p className="form-error" role="alert">Could not load animation clips: {clips.error.message}</p>}
+      {exportsQuery.isPending && <p role="status">Loading export history…</p>}
       {exportsQuery.isError && <p className="form-error" role="alert">Could not load exports.</p>}
       {assetExports.map((record) => <div className="version-row" key={record.id}>
         <span>{record.format}{record.preset_id === "godot4" ? " · Godot 4" : ""} · {new Date(record.created_at).toLocaleString()}</span>

@@ -108,6 +108,9 @@ function JobResults({ job }: { job: GenerationJob }) {
     },
   });
 
+  if (job.status !== "succeeded") return null;
+  if (resultsQuery.isPending) return <p role="status">Loading generated candidates…</p>;
+  if (resultsQuery.isError) return <p role="alert">Could not load candidates: {resultsQuery.error.message}</p>;
   return resultsQuery.data?.length ? (
     <div className="job-results">
       {resultsQuery.data.map((result) => (
@@ -284,6 +287,10 @@ export function GeneratorPanel({ projectId }: { projectId: string }) {
           {(createMutation.error ?? jobsQuery.error)?.message}
         </p>
       ) : null}
+      {presetsQuery.isPending ? <p role="status">Loading generator presets…</p> : null}
+      {presetsQuery.isError ? <p role="alert">Could not load generator presets: {presetsQuery.error.message}</p> : null}
+      {jobsQuery.isPending ? <p role="status">Loading generation jobs…</p> : null}
+      {cancelMutation.isError ? <p role="alert">Could not cancel job: {cancelMutation.error.message}</p> : null}
       <div className="job-list">
         {jobsQuery.data?.map((job) => (
           <article className="job-row" key={job.id}>

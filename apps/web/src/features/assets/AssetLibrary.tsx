@@ -29,6 +29,9 @@ function VersionHistory({ asset }: { asset: Asset }) {
   return (
     <div className="version-history">
       <h4>Version history</h4>
+      {versions.isPending ? <p role="status">Loading version history…</p> : null}
+      {versions.isError ? <p role="alert">Could not load version history: {versions.error.message}</p> : null}
+      {restore.isError ? <p role="alert">Could not restore version: {restore.error.message}</p> : null}
       {versions.data?.map((version) => (
         <div className="version-row" key={version.id}>
           <span>v{version.version_number} · {version.source}</span>
@@ -36,7 +39,7 @@ function VersionHistory({ asset }: { asset: Asset }) {
           {version.id === asset.active_version_id ? (
             <strong>Active</strong>
           ) : (
-            <button type="button" onClick={() => restore.mutate(version.id)}>Restore</button>
+            <button type="button" disabled={restore.isPending} aria-label={`Restore version ${version.version_number}`} onClick={() => restore.mutate(version.id)}>Restore</button>
           )}
         </div>
       ))}
@@ -93,6 +96,8 @@ export function AssetLibrary({ projectId }: { projectId: string }) {
         </button>
       </form>
       {importer.isError ? <p className="form-error" role="alert">{importer.error.message}</p> : null}
+      {assets.isPending ? <p role="status">Loading assets…</p> : null}
+      {assets.isError ? <p className="form-error" role="alert">Could not load assets: {assets.error.message}</p> : null}
       {assets.data?.length === 0 ? <p className="asset-empty">No assets imported yet.</p> : null}
       <div className="asset-grid">
         {assets.data?.map((asset) => (

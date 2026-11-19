@@ -7,6 +7,8 @@ All notable changes to AI Sprite Studio are documented here.
 - Sprint 10 in progress: autosave/recovery for unpublished editor drafts, read-only project integrity reports, and verified local project ZIP backup/restore into a fresh workspace.
 - Add editor-scoped keyboard shortcuts for drawing tools, undo/redo, and local draft saving without intercepting text inputs.
 - Add confirmed per-project cache cleanup with database-reference and path guards; preserve trash indefinitely without automatic purging.
+- Improve asset, export, and generator loading/error feedback and keyboard focus visibility; add a mocked frontend critical-path integration test.
+- Add reproducible Sprint 10 local editor, thumbnail, and fake-queue performance probes without brittle CI timing assertions.
 - Add a selectable Godot 4 spritesheet preset and example importer for Sprint 9.
 
 - Sprint 9 complete: immutable PNG, character-clip spritesheet PNG + schema-v1 JSON, GIF preview, download API, export history, and a basic export panel; verified on a fresh Python 3.11 environment.

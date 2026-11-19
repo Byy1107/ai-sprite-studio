@@ -20,6 +20,18 @@ function renderLibrary() {
 }
 
 describe("AssetLibrary", () => {
+  it("reports a failed asset load instead of showing an empty library", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(
+      JSON.stringify({ detail: "Local database unavailable" }), { status: 503 },
+    ));
+
+    renderLibrary();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading assets");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Local database unavailable");
+    expect(screen.queryByText("No assets imported yet.")).not.toBeInTheDocument();
+  });
+
   it("imports a PNG and shows its metadata", async () => {
     const asset = {
       id: "asset-1",

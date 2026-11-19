@@ -39,12 +39,19 @@ Make existing offline-first project and asset workflows safer for real use witho
 - Pixel-editor shortcuts are scoped to the focused editor: B/E/I/F/L/R/H/S choose tools, Ctrl+Z/Y undo/redo, Ctrl+Shift+Z redo, and Ctrl+S saves a draft. Text fields and other pages retain their normal keyboard behavior. Buttons expose shortcut metadata and the editor displays a key legend.
 - The backend critical-path smoke test now creates a project, imports and manually versions an asset, adds an animation frame, exports a spritesheet, backs up, and restores into a fresh workspace; it compares restored image and JSON bytes.
 - A 200-asset fixture opens and lists assets within a provisional 5-second local target. This measures the two API calls after fixture creation, not browser rendering or GPU generation.
+- Asset/version, export, and generator panels now distinguish loading and failed requests from empty results. Version restore cannot be submitted twice while pending. Keyboard focus has a visible outline and several low-contrast labels are brighter.
+- A mocked frontend integration test exercises project creation, opening, PNG import, animation clip/frame creation, and spritesheet JSON export. It complements the backend critical-path smoke test but is not a browser-level end-to-end test.
+- Reproducible local probes now cover 100 editor pencil strokes on a 128×128 canvas, 20 nearest-neighbor thumbnail writes from 512×512 PNGs, and ten serial fake-provider jobs. They assert output correctness but deliberately do not impose machine-dependent CI timing thresholds.
+
+## Local performance profile
+
+Run `pnpm --dir apps/web exec vitest run src/features/editor/editorState.performance.test.ts --reporter=verbose` and, from `apps/api`, `python -m pytest tests/test_sprint10_performance.py -q -s`. Local runs measured 36–46 ms for 100 editor strokes, 0.050 s for 20 thumbnail imports, and 0.152 s for ten fake jobs. These are elapsed process times on the current development machine, not GPU/ComfyUI measurements or browser frame-rate guarantees. The 200-asset open/list test retains its separate 5-second target; browser rendering has not been profiled.
 
 ## Remaining before acceptance
 
 - In-app trash restore/purge remains deferred; there is no automatic deletion of recoverable project folders.
-- Broader accessibility review, final loading/error states, and representative profiling.
-- Browser-level critical-path smoke test, representative editor/thumbnail/queue profiling, and full Sprint 10 acceptance.
+- Broader accessibility review and some loading/error paths outside the updated panels still need review.
+- Browser-level critical-path smoke test, browser rendering/GPU profiling on the target hardware, and full Sprint 10 acceptance.
 
 ## Risks
 
@@ -54,6 +61,6 @@ Make existing offline-first project and asset workflows safer for real use witho
 
 ## Validation to date
 
-- Focused project and editor tests passed. Full backend regression: 103 tests passed; Ruff and targeted mypy pass on Python 3.11. Full mypy fails on a redundant cast in the unchanged `app/services/exports.py:196`.
-- Full frontend regression: 24 tests passed; ESLint, TypeScript, and Vite production build passed.
+- Full backend regression: 105 tests passed; Ruff passed on Python 3.11. Full mypy fails on a redundant cast in the unchanged `app/services/exports.py:196`.
+- Full frontend regression: 28 tests passed; ESLint, TypeScript, and Vite production build passed.
 - Upstream Starlette/Alembic deprecation warnings and the pre-existing duplicate React key warning remain non-fatal. Browser-level critical-path validation, representative profiling, and accessibility review are still required before declaring Sprint 10 complete.

@@ -38,6 +38,11 @@ button {
   font-weight: 750;
 }
 
+:focus-visible {
+  outline: 3px solid #f2cb78;
+  outline-offset: 3px;
+}
+
 button:disabled {
   cursor: wait;
   opacity: 0.55;
@@ -144,7 +149,7 @@ h1 {
 }
 
 .status-card__state {
-  color: #6f7898;
+  color: #a7aec4;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -178,7 +183,7 @@ h1 {
   flex-wrap: wrap;
   gap: 18px;
   margin-top: 24px;
-  color: #6f7898;
+  color: #a7aec4;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -400,7 +405,7 @@ h1 {
 
 .asset-library__heading span,
 .asset-empty {
-  color: #6f7898;
+  color: #a7aec4;
   font-size: 0.75rem;
 }
 

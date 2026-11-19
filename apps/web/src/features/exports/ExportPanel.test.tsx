@@ -17,6 +17,18 @@ const asset: Asset = {
   active_version_id: "version-1", thumbnail_path: "", created_at: "", updated_at: "",
 };
 
+it("reports unavailable versions and export history", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(
+    JSON.stringify({ detail: "Storage offline" }), { status: 503 },
+  ));
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={queryClient}><ExportPanel asset={asset} /></QueryClientProvider>);
+
+  expect(screen.getByText("Loading export versions…")).toBeInTheDocument();
+  expect(await screen.findByText(/Could not load export versions: Storage offline/)).toBeInTheDocument();
+  expect(screen.getByText("Could not load exports.")).toBeInTheDocument();
+});
+
 it("exports a pinned PNG and a clip sheet without replacing prior records", async () => {
   const user = userEvent.setup();
   const records: ExportRecord[] = [];
