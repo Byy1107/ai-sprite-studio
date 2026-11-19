@@ -2,12 +2,15 @@ node_modules/
 .pnpm-store/
 dist/
 coverage/
+playwright-report/
+test-results/
 .vite/
 *.tsbuildinfo
 
 __pycache__/
 *.py[cod]
 .pytest_cache/
+/apps/api/.test-temp*/
 .ruff_cache/
 .mypy_cache/
 .venv*/
@@ -20,6 +23,8 @@ outputs/
 work/
 *.db
 *.sqlite3
+.godot/
+examples/godot4/exports/
 
 .idea/
 .vscode/

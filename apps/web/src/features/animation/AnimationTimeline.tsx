@@ -110,6 +110,7 @@ export function AnimationTimeline({ asset }: { asset: Asset }) {
         <button type="submit" disabled={create.isPending}>Add clip</button>
       </form>
       {create.isError && <p role="alert" className="form-error">{create.error.message}</p>}
+      {clips.isPending && <p role="status">Loading animation clips…</p>}
       {clips.isError && <p role="alert" className="form-error">Could not load animations.</p>}
       <div className="animation-row" role="group" aria-label="Animation clips">
         {clips.data?.map((clip) => (
@@ -119,6 +120,8 @@ export function AnimationTimeline({ asset }: { asset: Asset }) {
         ))}
       </div>
       {selectedClip && <>
+        {versions.isPending && <p role="status">Loading frame versions…</p>}
+        {versions.isError && <p role="alert" className="form-error">Could not load frame versions: {versions.error.message}</p>}
         <div className="animation-row">
           <label>Name <input key={selectedClip.id + selectedClip.name} aria-label="Clip name" maxLength={120} defaultValue={selectedClip.name}
             onBlur={(event) => { if (event.target.value.trim()) void run(() => updateAnimation(selectedClip.id, { name: event.target.value })); }} /></label>
@@ -148,6 +151,7 @@ export function AnimationTimeline({ asset }: { asset: Asset }) {
           }}>{playing ? "Pause" : "Play"}</button>
           <label><input type="checkbox" checked={onionSkin} onChange={(event) => setOnionSkin(event.target.checked)} /> Onion skin</label>
         </div>
+        {frames.isPending && <p role="status">Loading animation frames…</p>}
         {frames.isError && <p role="alert" className="form-error">Could not load frames.</p>}
         <div className="animation-preview" style={{ width: selectedClip.canvas_width * 4, height: selectedClip.canvas_height * 4 }}>
           {onionSkin && previousFrame && <img className="animation-preview__onion" alt="Previous frame" src={assetVersionContentUrl(previousFrame.asset_version_id)}

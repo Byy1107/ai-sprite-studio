@@ -1,6 +1,6 @@
 # AI Sprite Studio
 
-AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. Sprint 7 adds optional reference-guided generation and AI-assisted edits; Sprint 8 adds character animation clips and a timeline. AI providers remain optional and local.
+AI Sprite Studio is an offline-first Windows workspace for creating and editing micro-pixel and 8-bit game assets. Sprint 7 adds optional reference-guided generation and AI-assisted edits; Sprint 8 adds character animation clips and a timeline. Sprint 9 adds local PNG, spritesheet, JSON, GIF, and Godot-targeted exports. AI providers remain optional and local.
 
 ## Current status
 
@@ -23,6 +23,11 @@ AI Sprite Studio is an offline-first Windows workspace for creating and editing 
 - The pixel editor can queue whole-image variations or rectangular inpainting as candidates; inpaint results preserve pixels outside the selection.
 - Optional workflow wiring and safety checks have automated coverage. On a GTX 1070 Ti, baseline generation and AI edits now render at up to 512 pixels before nearest-neighbor resizing; a sword silhouette remained recognizable through variation and masked inpainting. One locally converted LoRA was verified to affect pixels, but did not improve quality. Background cleanup and pixel-art quality remain open; ControlNet and IP-Adapter still require compatible local models and GPU validation.
 - Character movesets support version-pinned frames, timing, loop modes, onion skin, pivot, offset, event markers, and reorder.
+- Sprint 9 supports nearest-neighbor PNG, character-clip spritesheet PNG with a validated schema-v1 JSON contract, GIF preview, and a selectable Godot 4 preset with a tested sample importer at `examples/godot4/`. Exports use unique project-local directories and never replace previous exports. A fresh Python 3.11 backend setup passed the test, lint, and type-check gates.
+- Sprint 10 hardening is complete on its feature branch: local draft recovery, read-only integrity reporting, ZIP backup/restore to a fresh workspace, safe trash/cache policy, keyboard pixel editing, and clearer loading/error states. A real-browser critical path and 200-asset fixture pass; screen-reader and GPU performance audits remain future follow-ups.
+- Sprint 11 implementation and supported-runtime validation are complete. The first-export guide, V1 format/migration reference, and release checklist are in `docs/user-guide.md`, `docs/project-format.md`, and `docs/release-checklist.md`. No V1 release has been tagged.
+- When the editor has focus, B/E/I/F/L/R/H/S select tools; Ctrl+Z/Y undo/redo; Ctrl+S saves an unpublished draft. Typing in form fields does not trigger editor shortcuts.
+- Focus the pixel canvas and use arrow keys to move its visible cursor one pixel at a time. Space/Enter applies pencil, eraser, fill, or picker; press twice to set the endpoints for line, rectangle, or region selection. Pan remains pointer/viewport-scroll based.
 
 ## Requirements
 
@@ -53,6 +58,11 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Open `http://127.0.0.1:5173`. See `docs/setup-windows.md` for the full setup and troubleshooting guide.
+Follow `docs/user-guide.md` to import a PNG and create your first export without an AI model.
+
+To back up a project, use **Download backup** on its card. To restore, start the app with a fresh workspace and SQLite database, then use **Restore backup**. Restore will not overwrite an existing project. The ZIP excludes browser drafts, trash, cache, and temporary files and is limited to 128 MB and 5,000 files.
+
+Deleted project folders remain in the workspace `.trash` until manually handled; the app never purges them automatically. **Clear cache** removes only disposable, unreferenced files in the selected project's cache after confirmation. It does not touch published assets, exports, or trash. Cache cleanup is not scheduled.
 
 ## Validation
 
@@ -61,12 +71,15 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm test:e2e
 
 cd apps/api
 python -m ruff check .
 python -m mypy app
 python -m pytest
 ```
+
+The Windows E2E command requires installed Google Chrome, Python 3.11 backend dependencies, and free ports 8000/5173. It starts FastAPI with a fresh SQLite database and workspace under the system temporary directory, then starts Vite; it does not use your regular project data or download a browser. Set `AI_SPRITE_PYTHON` when your backend virtual environment is in a nonstandard location.
 
 ## Safety and privacy
 

@@ -10,6 +10,7 @@ import {
 } from "../../lib/api";
 import { PixelEditor } from "../editor/PixelEditor";
 import { AnimationTimeline } from "../animation/AnimationTimeline";
+import { ExportPanel } from "../exports/ExportPanel";
 
 function VersionHistory({ asset }: { asset: Asset }) {
   const queryClient = useQueryClient();
@@ -28,6 +29,9 @@ function VersionHistory({ asset }: { asset: Asset }) {
   return (
     <div className="version-history">
       <h4>Version history</h4>
+      {versions.isPending ? <p role="status">Loading version history…</p> : null}
+      {versions.isError ? <p role="alert">Could not load version history: {versions.error.message}</p> : null}
+      {restore.isError ? <p role="alert">Could not restore version: {restore.error.message}</p> : null}
       {versions.data?.map((version) => (
         <div className="version-row" key={version.id}>
           <span>v{version.version_number} · {version.source}</span>
@@ -35,7 +39,7 @@ function VersionHistory({ asset }: { asset: Asset }) {
           {version.id === asset.active_version_id ? (
             <strong>Active</strong>
           ) : (
-            <button type="button" onClick={() => restore.mutate(version.id)}>Restore</button>
+            <button type="button" disabled={restore.isPending} aria-label={`Restore version ${version.version_number}`} onClick={() => restore.mutate(version.id)}>Restore</button>
           )}
         </div>
       ))}
@@ -45,19 +49,20 @@ function VersionHistory({ asset }: { asset: Asset }) {
 
 export function AssetLibrary({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<Asset | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const assets = useQuery({
     queryKey: ["assets", projectId],
     queryFn: ({ signal }) => listAssets(projectId, signal),
   });
+  const selected = assets.data?.find((asset) => asset.id === selectedId) ?? null;
   const importer = useMutation({
     mutationFn: (payload: FormData) => importAsset(projectId, payload),
     onSuccess: (asset) => {
-      setSelected(asset);
       queryClient.setQueryData<Asset[]>(["assets", projectId], (current = []) => [
         ...current.filter((item) => item.id !== asset.id),
         asset,
       ]);
+      setSelectedId(asset.id);
       queryClient.invalidateQueries({ queryKey: ["assets", projectId] });
     },
   });
@@ -92,10 +97,12 @@ export function AssetLibrary({ projectId }: { projectId: string }) {
         </button>
       </form>
       {importer.isError ? <p className="form-error" role="alert">{importer.error.message}</p> : null}
+      {assets.isPending ? <p role="status">Loading assets…</p> : null}
+      {assets.isError ? <p className="form-error" role="alert">Could not load assets: {assets.error.message}</p> : null}
       {assets.data?.length === 0 ? <p className="asset-empty">No assets imported yet.</p> : null}
       <div className="asset-grid">
         {assets.data?.map((asset) => (
-          <button className="asset-tile" type="button" key={asset.id} onClick={() => setSelected(asset)}>
+          <button className="asset-tile" type="button" key={asset.id} onClick={() => setSelectedId(asset.id)}>
             <strong>{asset.name}</strong>
             <span>{asset.asset_type} · {asset.style.replace("_", " ")}</span>
             <span>{asset.width}×{asset.height} · {asset.color_mode}</span>
@@ -104,7 +111,8 @@ export function AssetLibrary({ projectId }: { projectId: string }) {
       </div>
       {selected ? <PixelEditor asset={selected} /> : null}
       {selected ? <VersionHistory asset={selected} /> : null}
-      {selected?.asset_type === "character" ? <AnimationTimeline key={selected.id} asset={selected} /> : null}
+      {selected?.asset_type === "character" ? <AnimationTimeline key={`animation-${selected.id}`} asset={selected} /> : null}
+      {selected ? <ExportPanel key={`export-${selected.id}`} asset={selected} /> : null}
     </section>
   );
 }

@@ -144,3 +144,22 @@ class AnimationFrameRecord(Base):
     pivot_x: Mapped[int] = mapped_column(Integer, default=0)
     pivot_y: Mapped[int] = mapped_column(Integer, default=0)
     event_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+
+class ExportRecord(Base):
+    __tablename__ = "export_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    asset_id: Mapped[str] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"), index=True
+    )
+    format: Mapped[str] = mapped_column(String(24))
+    preset_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    config_json: Mapped[str] = mapped_column(Text)
+    output_path: Mapped[str] = mapped_column(Text, unique=True)
+    checksum: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(24), default="succeeded")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

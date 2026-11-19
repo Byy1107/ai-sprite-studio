@@ -6,6 +6,7 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from app.domain.assets import ImageMetadata, InvalidAssetError
+from app.services.project_storage import resolve_project_path
 
 MAX_IMPORT_BYTES = 16 * 1024 * 1024
 MAX_IMAGE_DIMENSION = 4096
@@ -37,9 +38,8 @@ class AssetStorage:
     def write_initial_version(
         self, project_root: Path, asset_id: str, version_id: str, content: bytes
     ) -> tuple[Path, Path]:
-        asset_root = project_root / "assets" / asset_id
-        versions = asset_root / "versions"
-        thumbnails = asset_root / "thumbnails"
+        versions = resolve_project_path(project_root, Path("assets") / asset_id / "versions")
+        thumbnails = resolve_project_path(project_root, Path("assets") / asset_id / "thumbnails")
         versions.mkdir(parents=True, exist_ok=False)
         thumbnails.mkdir(parents=True, exist_ok=True)
         version_path = versions / f"{version_id}.png"
@@ -51,16 +51,21 @@ class AssetStorage:
     def write_restored_version(
         self, project_root: Path, asset_id: str, version_id: str, source_path: Path
     ) -> Path:
-        target = project_root / "assets" / asset_id / "versions" / f"{version_id}.png"
+        target = resolve_project_path(
+            project_root, Path("assets") / asset_id / "versions" / f"{version_id}.png"
+        )
         self._atomic_write(target, source_path.read_bytes())
         return target
 
     def write_version(
         self, project_root: Path, asset_id: str, version_id: str, content: bytes
     ) -> tuple[Path, Path]:
-        asset_root = project_root / "assets" / asset_id
-        version_path = asset_root / "versions" / f"{version_id}.png"
-        thumbnail_path = asset_root / "thumbnails" / "preview.png"
+        version_path = resolve_project_path(
+            project_root, Path("assets") / asset_id / "versions" / f"{version_id}.png"
+        )
+        thumbnail_path = resolve_project_path(
+            project_root, Path("assets") / asset_id / "thumbnails" / "preview.png"
+        )
         self._atomic_write(version_path, content)
         self._write_thumbnail(thumbnail_path, content)
         return version_path, thumbnail_path

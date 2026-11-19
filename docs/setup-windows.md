@@ -44,6 +44,7 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Check `http://127.0.0.1:8000/api/v1/health` or the interactive API page at `http://127.0.0.1:8000/api/docs`.
+Then follow `docs/user-guide.md` to create a project, import a PNG, and download a first export. This path uses the fake provider and requires no GPU or checkpoint.
 
 If PowerShell blocks virtual-environment activation, run the interpreter directly:
 
@@ -51,7 +52,10 @@ If PowerShell blocks virtual-environment activation, run the interpreter directl
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+If the `py` launcher is unavailable, create `.venv` with your installed Python 3.11 executable directly. Verify `python --version` inside that environment before installing dependencies; Python 3.12+ is outside the supported V1 matrix.
+
 Project metadata and files remain local. Configure `AI_SPRITE_DATABASE_URL` and `AI_SPRITE_WORKSPACE_DIR` in `.env.local`; never commit the database or project workspace.
+Before upgrading an existing installation, stop the API and back up both SQLite and the workspace; see `docs/project-format.md` for the V1 format and migration policy.
 
 ## Optional ComfyUI setting
 
@@ -173,4 +177,15 @@ substituted. ComfyUI retains uploaded reference and mask copies under
 on the GTX 1070 Ti and inspect both output and memory use. Variation and inpaint
 completed on this machine at 512x512 inference; the edited sword silhouette
 remained recognizable, but noisy backgrounds and pixel-art cleanup remain.
+
+## ComfyUI troubleshooting for V1
+
+- **Provider unavailable:** Confirm ComfyUI is running only on your local machine at the configured `AI_SPRITE_COMFYUI_HTTP_URL`, and that the backend uses `AI_SPRITE_AI_PROVIDER=comfyui`. Restart the API after changing `.env.local`, then refresh AI capabilities. Switch back to `fake` to continue project work without a GPU.
+- **Checkpoint missing:** Put a licensed SD1.5-compatible file in ComfyUI's checkpoints directory, refresh/restart ComfyUI, and set `AI_SPRITE_COMFYUI_CHECKPOINT` to the exact advertised name. The studio does not download it for you.
+- **Out of memory:** Stop other GPU-heavy processes, disable optional adapters, and submit one candidate at a time. Merely selecting a smaller final sprite does not eliminate the 512-pixel inference workload. An OOM job should fail without changing the active asset version; inspect its error before retrying.
+- **LoRA job succeeds but looks unchanged:** Compare the same prompt and seed with and without the LoRA. Check SD1.5 compatibility and tensor-key format; a wired loader is not proof that weights affected pixels.
+- **ControlNet or IP-Adapter unavailable:** Install compatible local models and required nodes separately, restart ComfyUI, and refresh the catalogue. Supply an appropriate prepared control/reference PNG; the studio does not synthesize a control map automatically.
+- **Pinned reference changed or vanished:** Reimport or restore the missing file from a verified backup, then select a valid published version. The app refuses a changed checksum rather than silently using different pixels.
+
+Do not expose the API or ComfyUI to a network as a troubleshooting shortcut. See `docs/release-checklist.md` for V1 limitations and `docs/project-format.md` before migrating an existing workspace.
 

@@ -1,4 +1,4 @@
-import { PointerEvent, useEffect, useReducer, useRef, useState } from "react";
+import { KeyboardEvent, PointerEvent, useEffect, useReducer, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -33,8 +33,30 @@ const tools: Array<{ id: DrawingTool | "picker" | "pan" | "select"; label: strin
 ];
 
 const defaultPalette = ["#0b0d17", "#252b47", "#49506b", "#a7aec4", "#d8d2c4", "#b28a45", "#8f4938", "#67b7b2"];
+const toolShortcuts: Partial<Record<string, DrawingTool | "picker" | "pan" | "select">> = {
+  b: "pencil", e: "eraser", i: "picker", f: "fill", l: "line", r: "rectangle", h: "pan", s: "select",
+};
+const shortcutLabels: Record<DrawingTool | "picker" | "pan" | "select", string> = {
+  pencil: "B", eraser: "E", picker: "I", fill: "F", line: "L", rectangle: "R", pan: "H", select: "S",
+};
 
 type Draft = { width: number; height: number; pixels: number[] };
+
+function readDraft(key: string, width: number, height: number): Draft | null {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
+    const draft: unknown = JSON.parse(stored);
+    if (typeof draft !== "object" || draft === null) return null;
+    const candidate = draft as Partial<Draft>;
+    if (candidate.width !== width || candidate.height !== height ||
+      !Array.isArray(candidate.pixels) || candidate.pixels.length !== width * height * 4 ||
+      !candidate.pixels.every((value) => Number.isInteger(value) && value >= 0 && value <= 255)) return null;
+    return candidate as Draft;
+  } catch {
+    return null;
+  }
+}
 
 export function PixelEditor({ asset }: { asset: Asset }) {
   const queryClient = useQueryClient();
@@ -44,6 +66,8 @@ export function PixelEditor({ asset }: { asset: Asset }) {
   const panStart = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [history, dispatch] = useReducer(editorReducer, emptyHistory);
   const [tool, setTool] = useState<DrawingTool | "picker" | "pan" | "select">("pencil");
+  const [keyboardCursor, setKeyboardCursor] = useState<PixelPoint>({ x: 0, y: 0 });
+  const [keyboardAnchor, setKeyboardAnchor] = useState<PixelPoint | null>(null);
   const [color, setColor] = useState("#67b7b2");
   const [zoom, setZoom] = useState(16);
   const [grid, setGrid] = useState(true);
@@ -70,17 +94,17 @@ export function PixelEditor({ asset }: { asset: Asset }) {
   useEffect(() => {
     let canceled = false;
     async function load() {
-      const stored = localStorage.getItem(draftKey);
-      if (stored) {
-        const draft = JSON.parse(stored) as Draft;
-        if (draft.width === asset.width && draft.height === asset.height) {
-          dispatch({ type: "load", document: { ...draft, pixels: new Uint8ClampedArray(draft.pixels) } });
-          setUnpublishedChanges(true);
-          setMessage("Local draft restored.");
-          return;
-        }
+      const draft = readDraft(draftKey, asset.width, asset.height);
+      if (draft) {
+        dispatch({ type: "load", document: { ...draft, pixels: new Uint8ClampedArray(draft.pixels) } });
+        setUnpublishedChanges(true);
+        setMessage("Local draft restored. Publish it to create a new version.");
+        return;
       }
-      if (!asset.active_version_id) return;
+      if (!asset.active_version_id) {
+        setMessage("No published version or recoverable local draft is available.");
+        return;
+      }
       const image = new Image();
       image.crossOrigin = "anonymous";
       image.src = assetVersionContentUrl(asset.active_version_id);
@@ -99,6 +123,26 @@ export function PixelEditor({ asset }: { asset: Asset }) {
     load().catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Could not load image."));
     return () => { canceled = true; };
   }, [asset.active_version_id, asset.height, asset.width, draftKey]);
+
+  useEffect(() => {
+    if (!unpublishedChanges || !history.present) return;
+    const document = history.present;
+    const persist = () => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          width: document.width, height: document.height, pixels: Array.from(document.pixels),
+        }));
+      } catch {
+        setMessage("Autosave failed. Keep this tab open and free browser storage before continuing.");
+      }
+    };
+    const timeout = window.setTimeout(persist, 500);
+    window.addEventListener("pagehide", persist);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("pagehide", persist);
+    };
+  }, [draftKey, history.present, unpublishedChanges]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -229,28 +273,108 @@ export function PixelEditor({ asset }: { asset: Asset }) {
 
   function saveDraft() {
     if (!history.present) return;
-    localStorage.setItem(draftKey, JSON.stringify({
-      width: history.present.width,
-      height: history.present.height,
-      pixels: Array.from(history.present.pixels),
-    }));
-    setMessage("Draft saved locally. It is not a published version yet.");
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        width: history.present.width,
+        height: history.present.height,
+        pixels: Array.from(history.present.pixels),
+      }));
+      setMessage("Draft saved locally. It is not a published version yet.");
+    } catch {
+      setMessage("Draft could not be saved. Free browser storage before closing this tab.");
+    }
+  }
+
+  function handleCanvasKeyDown(event: KeyboardEvent<HTMLCanvasElement>) {
+    if (!history.present) return;
+    const offsets: Record<string, PixelPoint> = {
+      ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 },
+      ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 },
+    };
+    const offset = offsets[event.key];
+    if (offset) {
+      event.preventDefault();
+      event.stopPropagation();
+      const width = history.present.width;
+      const height = history.present.height;
+      setKeyboardCursor((current) => ({
+        x: Math.max(0, Math.min(width - 1, current.x + offset.x)),
+        y: Math.max(0, Math.min(height - 1, current.y + offset.y)),
+      }));
+      return;
+    }
+    if (event.key !== " " && event.key !== "Enter") return;
+    event.preventDefault();
+    event.stopPropagation();
+    const point = {
+      x: Math.min(keyboardCursor.x, history.present.width - 1),
+      y: Math.min(keyboardCursor.y, history.present.height - 1),
+    };
+    if (tool === "pan") return;
+    if (tool === "picker") {
+      setColor(colorAt(history.present, point));
+      return;
+    }
+    if (tool === "line" || tool === "rectangle" || tool === "select") {
+      if (!keyboardAnchor) {
+        setKeyboardAnchor(point);
+        return;
+      }
+      if (tool === "select") updateSelection(keyboardAnchor, point);
+      else {
+        dispatch({ type: "apply", document: applyTool(history.present, tool, keyboardAnchor, point, color) });
+        setUnpublishedChanges(true);
+      }
+      setKeyboardAnchor(null);
+      return;
+    }
+    dispatch({ type: "apply", document: applyTool(history.present, tool, point, point, color) });
+    setUnpublishedChanges(true);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+    if (event.altKey) return;
+    const key = event.key.toLowerCase();
+    if (event.ctrlKey || event.metaKey) {
+      if (key === "z" && event.shiftKey && history.future.length) {
+        event.preventDefault();
+        dispatch({ type: "redo" });
+      } else if (key === "z" && history.past.length) {
+        event.preventDefault();
+        dispatch({ type: "undo" });
+      } else if (key === "y" && history.future.length) {
+        event.preventDefault();
+        dispatch({ type: "redo" });
+      } else if (key === "s" && history.present) {
+        event.preventDefault();
+        saveDraft();
+      }
+      return;
+    }
+    const shortcutTool = toolShortcuts[key];
+    if (event.shiftKey || !shortcutTool) return;
+    event.preventDefault();
+    setTool(shortcutTool);
+    setKeyboardAnchor(null);
   }
 
   return (
-    <section className="pixel-editor" aria-label="Pixel editor">
+    <section className="pixel-editor" aria-label="Pixel editor" tabIndex={0} onKeyDown={handleKeyDown}>
       <div className="pixel-editor__header">
         <div><h4>Pixel editor</h4><span>{asset.width}×{asset.height} · nearest-neighbor</span></div>
         <div className="editor-actions">
-          <button type="button" onClick={() => dispatch({ type: "undo" })} disabled={!history.past.length}>Undo</button>
-          <button type="button" onClick={() => dispatch({ type: "redo" })} disabled={!history.future.length}>Redo</button>
-          <button type="button" onClick={saveDraft} disabled={!history.present}>Save draft</button>
+          <button type="button" aria-keyshortcuts="Control+Z" onClick={() => dispatch({ type: "undo" })} disabled={!history.past.length}>Undo</button>
+          <button type="button" aria-keyshortcuts="Control+Y" onClick={() => dispatch({ type: "redo" })} disabled={!history.future.length}>Redo</button>
+          <button type="button" aria-keyshortcuts="Control+S" onClick={saveDraft} disabled={!history.present}>Save draft</button>
           <button type="button" onClick={() => publish.mutate()} disabled={!history.present || publish.isPending}>Publish version</button>
         </div>
       </div>
       <div className="editor-toolbar" role="toolbar" aria-label="Drawing tools">
-        {tools.map((item) => <button type="button" aria-pressed={tool === item.id} key={item.id} onClick={() => setTool(item.id)}>{item.label}</button>)}
+        {tools.map((item) => <button type="button" aria-keyshortcuts={shortcutLabels[item.id]} aria-pressed={tool === item.id} key={item.id} onClick={() => { setTool(item.id); setKeyboardAnchor(null); }}>{item.label}</button>)}
       </div>
+      <p>Keyboard: B pencil, E eraser, I picker, F fill, L line, R rectangle, H pan, S select. Ctrl+Z undo, Ctrl+Y redo, Ctrl+S save draft.</p>
+      <p id={`editor-canvas-help-${asset.id}`}>Focus the canvas, use arrow keys to move one pixel, then Space or Enter to apply the tool. For line, rectangle, or selection, press twice to set both corners. Pan uses pointer or viewport scrolling.</p>
       <div className="editor-layout">
         <aside className="palette-panel">
           <label>Color <input aria-label="Editor color" type="color" value={color} onChange={(event) => setColor(event.target.value)} /></label>
@@ -258,17 +382,24 @@ export function PixelEditor({ asset }: { asset: Asset }) {
           <label>Zoom <input aria-label="Editor zoom" type="range" min="4" max="32" step="2" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
           <label><input type="checkbox" checked={grid} onChange={(event) => setGrid(event.target.checked)} /> Grid</label>
         </aside>
-        <div className="editor-viewport" ref={viewportRef}>
+        <div className="editor-viewport" ref={viewportRef} role="region" aria-label="Canvas viewport" tabIndex={0}>
           <div className="canvas-wrap" style={{ width: asset.width * zoom, height: asset.height * zoom }}>
             <canvas
               ref={canvasRef}
               aria-label="Pixel canvas"
+              aria-describedby={`editor-canvas-help-${asset.id}`}
+              tabIndex={0}
               style={{ width: asset.width * zoom, height: asset.height * zoom }}
+              onKeyDown={handleCanvasKeyDown}
               onPointerDown={pointerDown}
               onPointerMove={pointerMove}
               onPointerUp={pointerUp}
               onPointerLeave={pointerUp}
             />
+            <div className="editor-keyboard-cursor" style={{
+              left: keyboardCursor.x * zoom, top: keyboardCursor.y * zoom,
+              width: zoom, height: zoom,
+            }} />
             {grid ? <div className="pixel-grid" style={{ backgroundSize: `${zoom}px ${zoom}px` }} /> : null}
             {selection ? <div className="editor-selection" style={{
               left: selection.x * zoom, top: selection.y * zoom,
@@ -277,6 +408,7 @@ export function PixelEditor({ asset }: { asset: Asset }) {
           </div>
         </div>
       </div>
+      <p aria-live="polite">Keyboard cursor: {keyboardCursor.x + 1}, {keyboardCursor.y + 1}{keyboardAnchor ? "; first corner set" : ""}.</p>
       <div className="editor-ai-edit">
         <h5>AI-assisted edit</h5>
         <p>Uses the latest published version. Publish manual edits before queuing. Generated candidates never replace the active version until accepted.</p>

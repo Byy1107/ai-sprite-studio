@@ -26,6 +26,8 @@ from app.domain.generation import (
     UnsupportedGenerationOption,
 )
 from app.services.asset_storage import MAX_IMPORT_BYTES, AssetStorage
+from app.services.project_storage import resolve_project_path
+from app.services.projects import ProjectService
 
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sprite-generation")
 
@@ -79,9 +81,7 @@ class GenerationService:
         self.session.commit()
 
     def create(self, request: GenerationRequest) -> GenerationJobRecord:
-        project = self.session.get(ProjectRecord, request.project_id)
-        if project is None or project.deleted_at is not None:
-            raise ValueError("Project not found")
+        ProjectService(self.session, get_settings().workspace_dir).get_project(request.project_id)
         if request.lora_name is not None and self.provider.provider_id != "comfyui":
             raise UnsupportedGenerationOption("LoRA requires the ComfyUI provider")
         if request.ipadapter_model is not None or request.clip_vision_model is not None:
@@ -209,11 +209,12 @@ class GenerationService:
             self.session.refresh(job)
             if job.status == GenerationStatus.CANCELED.value:
                 return job
-            project = self.session.get(ProjectRecord, request.project_id)
-            if project is None:
-                raise ValueError("Project not found")
+            project = ProjectService(
+                self.session, get_settings().workspace_dir
+            ).get_project(request.project_id)
             relative_path = Path("candidates") / job.id / "result.png"
-            output_path = Path(project.root_path) / relative_path
+            root = Path(project.root_path)
+            output_path = resolve_project_path(root, relative_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             temporary_path = output_path.with_suffix(".tmp")
             temporary_path.write_bytes(provider_result.image_bytes)
@@ -256,10 +257,9 @@ class GenerationService:
             or version.asset_id != asset.id or asset.project_id != project.id
         ):
             raise ValueError("Pinned reference is no longer available in this project")
+        ProjectService(self.session, get_settings().workspace_dir).get_project(project.id)
         root = Path(project.root_path).resolve()
-        path = (root / version.file_path).resolve()
-        if not path.is_relative_to(root):
-            raise ValueError("Reference file is outside the project")
+        path = resolve_project_path(root, version.file_path)
         with path.open("rb") as reference_file:
             content = reference_file.read(MAX_IMPORT_BYTES + 1)
         AssetStorage().inspect_png(content)

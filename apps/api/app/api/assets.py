@@ -68,7 +68,7 @@ def asset_error(error: ValueError) -> HTTPException:
 def list_assets(project_id: str, service: AssetServiceDependency) -> list[AssetResponse]:
     try:
         return [AssetResponse.model_validate(asset) for asset in service.list_assets(project_id)]
-    except ProjectNotFoundError as error:
+    except ValueError as error:
         raise asset_error(error) from error
 
 
@@ -90,7 +90,7 @@ async def import_asset(
             project_id, name, asset_type, style, await file.read()
         )
         return AssetResponse.model_validate(asset)
-    except (InvalidAssetError, ProjectNotFoundError) as error:
+    except (InvalidAssetError, ProjectNotFoundError, ValueError) as error:
         raise asset_error(error) from error
 
 
@@ -119,7 +119,7 @@ def list_versions(
 def get_version_content(version_id: str, service: AssetServiceDependency) -> FileResponse:
     try:
         return FileResponse(service.get_version_path(version_id), media_type="image/png")
-    except AssetNotFoundError as error:
+    except ValueError as error:
         raise asset_error(error) from error
 
 
@@ -150,5 +150,5 @@ def restore_version(
 ) -> AssetVersionResponse:
     try:
         return AssetVersionResponse.model_validate(service.restore_version(asset_id, version_id))
-    except AssetNotFoundError as error:
+    except ValueError as error:
         raise asset_error(error) from error

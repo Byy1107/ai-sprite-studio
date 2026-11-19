@@ -13,7 +13,8 @@
     "build": "pnpm --filter @ai-sprite-studio/web build",
     "lint": "pnpm --filter @ai-sprite-studio/web lint",
     "typecheck": "pnpm --filter @ai-sprite-studio/web typecheck",
-    "test": "pnpm --filter @ai-sprite-studio/web test"
+    "test": "pnpm --filter @ai-sprite-studio/web test",
+    "test:e2e": "pnpm --filter @ai-sprite-studio/web test:e2e"
   }
 }
 

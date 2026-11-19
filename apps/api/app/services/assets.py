@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.models import AssetRecord, AssetVersionRecord
 from app.domain.assets import AssetStyle, AssetType
 from app.services.asset_storage import AssetStorage
+from app.services.project_storage import resolve_project_path
 from app.services.projects import ProjectService
 
 
@@ -92,7 +93,7 @@ class AssetService:
             raise AssetNotFoundError("Asset version was not found.")
         asset = self.get_asset(version.asset_id)
         project = self.projects.get_project(asset.project_id)
-        path = Path(project.root_path) / version.file_path
+        path = resolve_project_path(Path(project.root_path), version.file_path)
         if not path.is_file():
             raise AssetNotFoundError("Asset version file was not found.")
         return path
@@ -181,7 +182,7 @@ class AssetService:
             )
         )
         restored_id = str(uuid4())
-        source_path = Path(project.root_path) / source.file_path
+        source_path = resolve_project_path(Path(project.root_path), source.file_path)
         restored_path = self.storage.write_restored_version(
             Path(project.root_path), asset_id, restored_id, source_path
         )

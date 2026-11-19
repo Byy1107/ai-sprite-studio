@@ -78,6 +78,19 @@ export type AnimationFrame = {
   event_name: string | null;
 };
 
+export type ExportRecord = {
+  id: string;
+  project_id: string;
+  asset_id: string;
+  format: "png" | "spritesheet" | "gif";
+  preset_id: "godot4" | null;
+  config: Record<string, unknown>;
+  output_path: string;
+  checksum: string;
+  status: string;
+  created_at: string;
+};
+
 export type GenerationJob = {
   id: string;
   project_id: string;
@@ -159,6 +172,30 @@ export function getAICapabilities(signal?: AbortSignal): Promise<{
 
 export function listProjects(signal?: AbortSignal): Promise<Project[]> {
   return request<Project[]>("/projects", { signal });
+}
+
+export type ProjectIntegrity = {
+  project_id: string;
+  status: "ok" | "issues";
+  issues: Array<{ kind: string; reference_id: string; path: string }>;
+};
+
+export function inspectProject(projectId: string, signal?: AbortSignal): Promise<ProjectIntegrity> {
+  return request<ProjectIntegrity>(`/projects/${projectId}/integrity`, { signal });
+}
+
+export function backupProjectUrl(projectId: string): string {
+  return `${apiBaseUrl}/projects/${projectId}/backup`;
+}
+
+export function restoreProject(file: File): Promise<Project> {
+  const payload = new FormData();
+  payload.set("file", file);
+  return request<Project>("/projects/restore", { method: "POST", body: payload });
+}
+
+export function clearProjectCache(projectId: string): Promise<{ removed_files: number }> {
+  return request(`/projects/${projectId}/cache`, { method: "DELETE" });
 }
 
 export function createProject(payload: { name: string; description: string }): Promise<Project> {
@@ -252,6 +289,28 @@ export function reorderAnimationFrames(id: string, frameIds: string[]): Promise<
   return request(`/animations/${id}/frames/reorder`, {
     method: "POST", body: JSON.stringify({ frame_ids: frameIds }),
   });
+}
+
+export function listExports(projectId: string, signal?: AbortSignal): Promise<ExportRecord[]> {
+  return request(`/projects/${projectId}/exports`, { signal });
+}
+
+export function createExport(payload: {
+  asset_id: string;
+  format: ExportRecord["format"];
+  version_id?: string;
+  animation_id?: string;
+  scale: 1 | 2 | 4 | 8;
+  columns?: number;
+  spacing?: number;
+  padding?: number;
+  preset_id?: "godot4";
+}): Promise<ExportRecord> {
+  return request("/exports", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function exportFileUrl(exportId: string, kind: "png" | "json" | "gif"): string {
+  return `${apiBaseUrl}/exports/${exportId}/files/${kind}`;
 }
 
 export function publishManualVersion(

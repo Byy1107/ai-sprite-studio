@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -6,9 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import sessionmaker
 
 from app.api.router import router
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import get_engine
 from app.services.generation import GenerationService
+from app.services.projects import ProjectService
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -17,6 +22,13 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
     factory = sessionmaker(bind=get_engine(), expire_on_commit=False)
     with factory() as session:
         GenerationService(session).recover_interrupted()
+        projects = ProjectService(session, get_settings().workspace_dir)
+        for project in projects.list_projects():
+            issues = projects.inspect_integrity(project.id)
+            if issues:
+                logger.warning(
+                    "Project %s has %d missing or unsafe files.", project.id, len(issues)
+                )
     yield
 
 
