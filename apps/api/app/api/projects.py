@@ -1,13 +1,15 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.db.session import get_session
 from app.domain.projects import InvalidProjectNameError, ProjectDraft
+from app.services.project_backup import MAX_BACKUP_BYTES, ProjectBackupService
 from app.services.projects import DuplicateProjectError, ProjectNotFoundError, ProjectService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -35,6 +37,12 @@ class ProjectResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_opened_at: datetime | None
+
+
+class ProjectIntegrityResponse(BaseModel):
+    project_id: str
+    status: str
+    issues: list[dict[str, str]]
 
 
 def project_service(
@@ -95,6 +103,60 @@ def open_project(project_id: str, service: ProjectServiceDependency) -> ProjectR
     try:
         return ProjectResponse.model_validate(service.open_project(project_id))
     except ProjectNotFoundError as error:
+        raise translate_project_error(error) from error
+
+
+@router.get("/{project_id}/integrity", response_model=ProjectIntegrityResponse)
+def inspect_project_integrity(
+    project_id: str, service: ProjectServiceDependency
+) -> ProjectIntegrityResponse:
+    try:
+        issues = service.inspect_integrity(project_id)
+    except ProjectNotFoundError as error:
+        raise translate_project_error(error) from error
+    return ProjectIntegrityResponse(
+        project_id=project_id, status="issues" if issues else "ok", issues=issues,
+    )
+
+
+@router.get("/{project_id}/backup")
+def backup_project(project_id: str, service: ProjectServiceDependency) -> Response:
+    try:
+        project = service.get_project(project_id)
+        content = ProjectBackupService(
+            service.session, service.storage.workspace_dir
+        ).create_backup(project_id)
+    except ProjectNotFoundError as error:
+        raise translate_project_error(error) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return Response(
+        content=content, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{project.slug}.zip"'},
+    )
+
+
+@router.post("/restore", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+async def restore_project(
+    service: ProjectServiceDependency, file: Annotated[UploadFile, File()]
+) -> ProjectResponse:
+    content = await file.read(MAX_BACKUP_BYTES + 1)
+    try:
+        project = ProjectBackupService(
+            service.session, service.storage.workspace_dir
+        ).restore_backup(content)
+    except IntegrityError as error:
+        raise HTTPException(status_code=409, detail="Project or record already exists.") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return ProjectResponse.model_validate(project)
+
+
+@router.delete("/{project_id}/cache")
+def clear_project_cache(project_id: str, service: ProjectServiceDependency) -> dict[str, int]:
+    try:
+        return {"removed_files": service.clear_cache(project_id)}
+    except (ProjectNotFoundError, ValueError) as error:
         raise translate_project_error(error) from error
 
 

@@ -174,6 +174,30 @@ export function listProjects(signal?: AbortSignal): Promise<Project[]> {
   return request<Project[]>("/projects", { signal });
 }
 
+export type ProjectIntegrity = {
+  project_id: string;
+  status: "ok" | "issues";
+  issues: Array<{ kind: string; reference_id: string; path: string }>;
+};
+
+export function inspectProject(projectId: string, signal?: AbortSignal): Promise<ProjectIntegrity> {
+  return request<ProjectIntegrity>(`/projects/${projectId}/integrity`, { signal });
+}
+
+export function backupProjectUrl(projectId: string): string {
+  return `${apiBaseUrl}/projects/${projectId}/backup`;
+}
+
+export function restoreProject(file: File): Promise<Project> {
+  const payload = new FormData();
+  payload.set("file", file);
+  return request<Project>("/projects/restore", { method: "POST", body: payload });
+}
+
+export function clearProjectCache(projectId: string): Promise<{ removed_files: number }> {
+  return request(`/projects/${projectId}/cache`, { method: "DELETE" });
+}
+
 export function createProject(payload: { name: string; description: string }): Promise<Project> {
   return request<Project>("/projects", { method: "POST", body: JSON.stringify(payload) });
 }

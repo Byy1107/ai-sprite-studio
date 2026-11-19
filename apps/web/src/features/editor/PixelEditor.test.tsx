@@ -13,6 +13,51 @@ afterEach(() => {
 });
 
 describe("PixelEditor", () => {
+  it("autosaves an interrupted draft and restores it without publishing", async () => {
+    let stored = JSON.stringify({ width: 2, height: 2, pixels: Array(16).fill(0) });
+    const setItem = vi.fn((_key: string, value: string) => { stored = value; });
+    vi.stubGlobal("localStorage", {
+      getItem: () => stored, setItem, removeItem: vi.fn(),
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("[]"));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      clearRect: vi.fn(), putImageData: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.stubGlobal("ImageData", class {
+      constructor(public data: Uint8ClampedArray, public width: number, public height: number) {}
+    });
+    const asset = {
+      id: "draft-asset", project_id: "project-1", name: "Knight", asset_type: "character" as const,
+      style: "eight_bit" as const, width: 2, height: 2, color_mode: "RGBA",
+      active_version_id: null, thumbnail_path: "preview.png",
+      created_at: "2026-11-11T00:00:00Z", updated_at: "2026-11-11T00:00:00Z",
+    };
+    const renderEditor = () => render(<QueryClientProvider client={new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })}><PixelEditor asset={asset} /></QueryClientProvider>);
+    const first = renderEditor();
+    expect(await screen.findByText(/Local draft restored/)).toBeInTheDocument();
+    const canvas = screen.getByLabelText("Pixel canvas");
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 0, top: 0, width: 32, height: 32, right: 32, bottom: 32,
+      x: 0, y: 0, toJSON: () => ({}),
+    });
+    fireEvent(canvas, new MouseEvent("pointerdown", { bubbles: true, clientX: 8, clientY: 8 }));
+    fireEvent(canvas, new MouseEvent("pointerup", { bubbles: true, clientX: 8, clientY: 8 }));
+    await waitFor(() => expect(setItem).toHaveBeenCalled(), { timeout: 2000 });
+    expect(JSON.parse(stored).pixels).not.toEqual(Array(16).fill(0));
+    const user = userEvent.setup();
+    screen.getByRole("region", { name: "Pixel editor" }).focus();
+    await user.keyboard("{Control>}z{/Control}");
+    expect(screen.getByRole("button", { name: "Redo" })).toBeEnabled();
+    await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
+    expect(screen.getByRole("button", { name: "Undo" })).toBeEnabled();
+    first.unmount();
+    renderEditor();
+    expect(await screen.findByText(/Local draft restored/)).toBeInTheDocument();
+    expect(asset.active_version_id).toBeNull();
+  });
+
   it("exposes core tools and grid control", async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -41,6 +86,12 @@ describe("PixelEditor", () => {
     expect(grid).toBeChecked();
     await userEvent.click(grid);
     expect(grid).not.toBeChecked();
+    const user = userEvent.setup();
+    screen.getByRole("region", { name: "Pixel editor" }).focus();
+    await user.keyboard("e");
+    expect(screen.getByRole("button", { name: "Eraser" })).toHaveAttribute("aria-pressed", "true");
+    await user.type(screen.getByRole("textbox", { name: "AI edit prompt" }), "b");
+    expect(screen.getByRole("button", { name: "Eraser" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("queues variation and selected-region inpaint against a published version", async () => {

@@ -34,5 +34,5 @@ class ProjectStorage:
         trash_root.mkdir(parents=True, exist_ok=True)
         destination = trash_root / project_id
         if destination.exists():
-            shutil.rmtree(destination)
+            raise FileExistsError("A trash copy already exists for this project.")
         return Path(shutil.move(str(path), str(destination)))

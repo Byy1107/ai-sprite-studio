@@ -1,4 +1,4 @@
-import { PointerEvent, useEffect, useReducer, useRef, useState } from "react";
+import { KeyboardEvent, PointerEvent, useEffect, useReducer, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -33,8 +33,30 @@ const tools: Array<{ id: DrawingTool | "picker" | "pan" | "select"; label: strin
 ];
 
 const defaultPalette = ["#0b0d17", "#252b47", "#49506b", "#a7aec4", "#d8d2c4", "#b28a45", "#8f4938", "#67b7b2"];
+const toolShortcuts: Partial<Record<string, DrawingTool | "picker" | "pan" | "select">> = {
+  b: "pencil", e: "eraser", i: "picker", f: "fill", l: "line", r: "rectangle", h: "pan", s: "select",
+};
+const shortcutLabels: Record<DrawingTool | "picker" | "pan" | "select", string> = {
+  pencil: "B", eraser: "E", picker: "I", fill: "F", line: "L", rectangle: "R", pan: "H", select: "S",
+};
 
 type Draft = { width: number; height: number; pixels: number[] };
+
+function readDraft(key: string, width: number, height: number): Draft | null {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
+    const draft: unknown = JSON.parse(stored);
+    if (typeof draft !== "object" || draft === null) return null;
+    const candidate = draft as Partial<Draft>;
+    if (candidate.width !== width || candidate.height !== height ||
+      !Array.isArray(candidate.pixels) || candidate.pixels.length !== width * height * 4 ||
+      !candidate.pixels.every((value) => Number.isInteger(value) && value >= 0 && value <= 255)) return null;
+    return candidate as Draft;
+  } catch {
+    return null;
+  }
+}
 
 export function PixelEditor({ asset }: { asset: Asset }) {
   const queryClient = useQueryClient();
@@ -70,17 +92,17 @@ export function PixelEditor({ asset }: { asset: Asset }) {
   useEffect(() => {
     let canceled = false;
     async function load() {
-      const stored = localStorage.getItem(draftKey);
-      if (stored) {
-        const draft = JSON.parse(stored) as Draft;
-        if (draft.width === asset.width && draft.height === asset.height) {
-          dispatch({ type: "load", document: { ...draft, pixels: new Uint8ClampedArray(draft.pixels) } });
-          setUnpublishedChanges(true);
-          setMessage("Local draft restored.");
-          return;
-        }
+      const draft = readDraft(draftKey, asset.width, asset.height);
+      if (draft) {
+        dispatch({ type: "load", document: { ...draft, pixels: new Uint8ClampedArray(draft.pixels) } });
+        setUnpublishedChanges(true);
+        setMessage("Local draft restored. Publish it to create a new version.");
+        return;
       }
-      if (!asset.active_version_id) return;
+      if (!asset.active_version_id) {
+        setMessage("No published version or recoverable local draft is available.");
+        return;
+      }
       const image = new Image();
       image.crossOrigin = "anonymous";
       image.src = assetVersionContentUrl(asset.active_version_id);
@@ -99,6 +121,26 @@ export function PixelEditor({ asset }: { asset: Asset }) {
     load().catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Could not load image."));
     return () => { canceled = true; };
   }, [asset.active_version_id, asset.height, asset.width, draftKey]);
+
+  useEffect(() => {
+    if (!unpublishedChanges || !history.present) return;
+    const document = history.present;
+    const persist = () => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          width: document.width, height: document.height, pixels: Array.from(document.pixels),
+        }));
+      } catch {
+        setMessage("Autosave failed. Keep this tab open and free browser storage before continuing.");
+      }
+    };
+    const timeout = window.setTimeout(persist, 500);
+    window.addEventListener("pagehide", persist);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("pagehide", persist);
+    };
+  }, [draftKey, history.present, unpublishedChanges]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -229,28 +271,59 @@ export function PixelEditor({ asset }: { asset: Asset }) {
 
   function saveDraft() {
     if (!history.present) return;
-    localStorage.setItem(draftKey, JSON.stringify({
-      width: history.present.width,
-      height: history.present.height,
-      pixels: Array.from(history.present.pixels),
-    }));
-    setMessage("Draft saved locally. It is not a published version yet.");
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        width: history.present.width,
+        height: history.present.height,
+        pixels: Array.from(history.present.pixels),
+      }));
+      setMessage("Draft saved locally. It is not a published version yet.");
+    } catch {
+      setMessage("Draft could not be saved. Free browser storage before closing this tab.");
+    }
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+    if (event.altKey) return;
+    const key = event.key.toLowerCase();
+    if (event.ctrlKey || event.metaKey) {
+      if (key === "z" && event.shiftKey && history.future.length) {
+        event.preventDefault();
+        dispatch({ type: "redo" });
+      } else if (key === "z" && history.past.length) {
+        event.preventDefault();
+        dispatch({ type: "undo" });
+      } else if (key === "y" && history.future.length) {
+        event.preventDefault();
+        dispatch({ type: "redo" });
+      } else if (key === "s" && history.present) {
+        event.preventDefault();
+        saveDraft();
+      }
+      return;
+    }
+    const shortcutTool = toolShortcuts[key];
+    if (event.shiftKey || !shortcutTool) return;
+    event.preventDefault();
+    setTool(shortcutTool);
   }
 
   return (
-    <section className="pixel-editor" aria-label="Pixel editor">
+    <section className="pixel-editor" aria-label="Pixel editor" tabIndex={0} onKeyDown={handleKeyDown}>
       <div className="pixel-editor__header">
         <div><h4>Pixel editor</h4><span>{asset.width}×{asset.height} · nearest-neighbor</span></div>
         <div className="editor-actions">
-          <button type="button" onClick={() => dispatch({ type: "undo" })} disabled={!history.past.length}>Undo</button>
-          <button type="button" onClick={() => dispatch({ type: "redo" })} disabled={!history.future.length}>Redo</button>
-          <button type="button" onClick={saveDraft} disabled={!history.present}>Save draft</button>
+          <button type="button" aria-keyshortcuts="Control+Z" onClick={() => dispatch({ type: "undo" })} disabled={!history.past.length}>Undo</button>
+          <button type="button" aria-keyshortcuts="Control+Y" onClick={() => dispatch({ type: "redo" })} disabled={!history.future.length}>Redo</button>
+          <button type="button" aria-keyshortcuts="Control+S" onClick={saveDraft} disabled={!history.present}>Save draft</button>
           <button type="button" onClick={() => publish.mutate()} disabled={!history.present || publish.isPending}>Publish version</button>
         </div>
       </div>
       <div className="editor-toolbar" role="toolbar" aria-label="Drawing tools">
-        {tools.map((item) => <button type="button" aria-pressed={tool === item.id} key={item.id} onClick={() => setTool(item.id)}>{item.label}</button>)}
+        {tools.map((item) => <button type="button" aria-keyshortcuts={shortcutLabels[item.id]} aria-pressed={tool === item.id} key={item.id} onClick={() => setTool(item.id)}>{item.label}</button>)}
       </div>
+      <p>Keyboard: B pencil, E eraser, I picker, F fill, L line, R rectangle, H pan, S select. Ctrl+Z undo, Ctrl+Y redo, Ctrl+S save draft.</p>
       <div className="editor-layout">
         <aside className="palette-panel">
           <label>Color <input aria-label="Editor color" type="color" value={color} onChange={(event) => setColor(event.target.value)} /></label>
